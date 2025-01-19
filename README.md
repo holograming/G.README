@@ -1,0 +1,2 @@
+# G.README
+generative readme
