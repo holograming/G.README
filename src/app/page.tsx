@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import ReadmeGenerator from '@/components/readme-generator';
 import ReadmeResult from '@/components/readme-result';
 
@@ -9,6 +9,7 @@ interface GeneratedData {
   description: string;
   features: string[];
   techStack: string[];
+  markdown?: string;
 }
 
 export default function Home() {

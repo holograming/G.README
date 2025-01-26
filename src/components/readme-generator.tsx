@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Upload } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface ReadmeGeneratorProps {
   onGenerate: (data: {
@@ -13,15 +14,21 @@ interface ReadmeGeneratorProps {
     description: string;
     features: string[];
     techStack: string[];
+    markdown?: string;
   }) => void;
 }
 
-// 기술 스택 감지 함수
-const detectTechStack = (dependencies: any = {}, devDependencies: any = {}) => {
+interface ProjectData {
+  name?: string;
+  description?: string;
+  dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
+}
+
+const detectTechStack = (dependencies: Record<string, string> = {}, devDependencies: Record<string, string> = {}) => {
   const allDeps = { ...dependencies, ...devDependencies };
   const detectedStack: string[] = [];
 
-  // 기술 스택 매핑
   const techMapping: Record<string, string> = {
     'react': 'React',
     'next': 'Next.js',
@@ -47,14 +54,12 @@ const detectTechStack = (dependencies: any = {}, devDependencies: any = {}) => {
   return detectedStack;
 };
 
-// Gradle 파일 파싱
 const parseGradleFile = (content: string) => {
   const detected = {
     techStack: [] as string[],
     features: [] as string[]
   };
 
-  // Gradle 의존성 매핑
   const gradleDependencies: Record<string, string> = {
     'org.springframework.boot': 'Spring Boot',
     'org.springframework': 'Spring Framework',
@@ -64,11 +69,9 @@ const parseGradleFile = (content: string) => {
     'junit': 'JUnit'
   };
 
-  // plugins와 dependencies 블록 찾기
   const pluginsMatch = content.match(/plugins\s*{[^}]*}/g);
   const dependenciesMatch = content.match(/dependencies\s*{[^}]*}/g);
 
-  // plugins 분석
   if (pluginsMatch) {
     const plugins = pluginsMatch[0];
     if (plugins.includes('org.springframework.boot')) {
@@ -79,7 +82,6 @@ const parseGradleFile = (content: string) => {
     }
   }
 
-  // dependencies 분석
   if (dependenciesMatch) {
     const dependencies = dependenciesMatch[0];
     Object.entries(gradleDependencies).forEach(([key, value]) => {
@@ -88,7 +90,6 @@ const parseGradleFile = (content: string) => {
       }
     });
 
-    // 기능 감지
     if (dependencies.includes('spring-boot-starter-web')) {
       detected.features.push('REST API');
     }
@@ -103,16 +104,16 @@ const parseGradleFile = (content: string) => {
   return detected;
 };
 
-export const ReadmeGenerator: React.FC<ReadmeGeneratorProps> = ({ onGenerate }) => {
-  // State 관리
+const ReadmeGenerator: React.FC<ReadmeGeneratorProps> = ({ onGenerate }) => {
   const [projectName, setProjectName] = useState('');
   const [description, setDescription] = useState('');
   const [newFeature, setNewFeature] = useState('');
   const [newStack, setNewStack] = useState('');
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>([]);
   const [selectedStack, setSelectedStack] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // 미리 정의된 기능들
   const commonFeatures = [
     'Authentication',
     'REST API',
@@ -124,7 +125,6 @@ export const ReadmeGenerator: React.FC<ReadmeGeneratorProps> = ({ onGenerate }) 
     'Responsive Design'
   ];
 
-  // 미리 정의된 기술 스택
   const commonStacks = [
     'React',
     'Next.js',
@@ -136,7 +136,6 @@ export const ReadmeGenerator: React.FC<ReadmeGeneratorProps> = ({ onGenerate }) 
     'TailwindCSS'
   ];
 
-  // 파일 업로드 핸들러
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -145,15 +144,13 @@ export const ReadmeGenerator: React.FC<ReadmeGeneratorProps> = ({ onGenerate }) 
       const content = await file.text();
       let detected = { techStack: [] as string[], features: [] as string[] };
 
-      // 파일 타입에 따른 파서 선택
       if (file.name.endsWith('.json')) {
-        const packageJson = JSON.parse(content);
+        const packageJson = JSON.parse(content) as ProjectData;
         detected.techStack = detectTechStack(
           packageJson.dependencies,
           packageJson.devDependencies
         );
         
-        // 프로젝트 정보 설정
         if (packageJson.name) setProjectName(packageJson.name);
         if (packageJson.description) setDescription(packageJson.description);
 
@@ -161,7 +158,6 @@ export const ReadmeGenerator: React.FC<ReadmeGeneratorProps> = ({ onGenerate }) 
         detected = parseGradleFile(content);
       }
 
-      // 감지된 기술 스택 설정
       setSelectedStack(prevStack => {
         const newStack = [...prevStack];
         detected.techStack.forEach(stack => {
@@ -172,7 +168,6 @@ export const ReadmeGenerator: React.FC<ReadmeGeneratorProps> = ({ onGenerate }) 
         return newStack;
       });
 
-      // 감지된 기능 설정
       setSelectedFeatures(prevFeatures => {
         const newFeatures = [...prevFeatures];
         detected.features.forEach(feature => {
@@ -185,10 +180,10 @@ export const ReadmeGenerator: React.FC<ReadmeGeneratorProps> = ({ onGenerate }) 
 
     } catch (error) {
       console.error('Error parsing file:', error);
+      setError('Failed to parse the uploaded file');
     }
   };
 
-  // 기능 추가 핸들러
   const handleAddFeature = () => {
     if (newFeature.trim() && !selectedFeatures.includes(newFeature.trim())) {
       setSelectedFeatures([...selectedFeatures, newFeature.trim()]);
@@ -196,7 +191,6 @@ export const ReadmeGenerator: React.FC<ReadmeGeneratorProps> = ({ onGenerate }) 
     }
   };
 
-  // 기술 스택 추가 핸들러
   const handleAddStack = () => {
     if (newStack.trim() && !selectedStack.includes(newStack.trim())) {
       setSelectedStack([...selectedStack, newStack.trim()]);
@@ -204,14 +198,48 @@ export const ReadmeGenerator: React.FC<ReadmeGeneratorProps> = ({ onGenerate }) 
     }
   };
 
-  // README 생성 핸들러
-  const handleGenerate = () => {
-    onGenerate({
-      projectName,
-      description,
-      features: selectedFeatures,
-      techStack: selectedStack
-    });
+  const handleGenerate = async () => {
+    if (!projectName.trim() || !description.trim()) {
+      setError('Project name and description are required');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          projectName,
+          description,
+          features: selectedFeatures,
+          techStack: selectedStack,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate README');
+      }
+
+      const data = await response.json();
+      onGenerate({
+        projectName,
+        description,
+        features: selectedFeatures,
+        techStack: selectedStack,
+        markdown: data.markdown,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+      console.error('Error:', err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -220,10 +248,8 @@ export const ReadmeGenerator: React.FC<ReadmeGeneratorProps> = ({ onGenerate }) 
         <h1 className="text-3xl font-bold mb-6">README Generator</h1>
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* 입력 폼 */}
           <Card className="p-4">
             <div className="space-y-6">
-              {/* 파일 업로드 영역 */}
               <div className="border-2 border-dashed rounded-lg p-4 text-center">
                 <input
                   type="file"
@@ -243,32 +269,29 @@ export const ReadmeGenerator: React.FC<ReadmeGeneratorProps> = ({ onGenerate }) 
                 </label>
               </div>
 
-              {/* 프로젝트 이름 입력 */}
               <div>
                 <label className="text-sm font-medium mb-2 block">
                   Project Name
                 </label>
                 <Input 
-                  placeholder="Enter project name"
                   value={projectName}
                   onChange={(e) => setProjectName(e.target.value)}
+                  placeholder="Enter project name"
                 />
               </div>
               
-              {/* 프로젝트 설명 입력 */}
               <div>
                 <label className="text-sm font-medium mb-2 block">
-                  Project Description
+                  Description
                 </label>
                 <Textarea 
-                  placeholder="Describe your project..."
-                  className="h-32"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Describe your project..."
+                  className="h-32"
                 />
               </div>
 
-              {/* 기능 선택 영역 */}
               <div>
                 <label className="text-sm font-medium mb-2 block">Features</label>
                 <div className="flex flex-wrap gap-2 mb-2">
@@ -321,7 +344,6 @@ export const ReadmeGenerator: React.FC<ReadmeGeneratorProps> = ({ onGenerate }) 
                 </div>
               </div>
               
-              {/* 기술 스택 선택 영역 */}
               <div>
                 <label className="text-sm font-medium mb-2 block">Tech Stack</label>
                 <div className="flex flex-wrap gap-2 mb-2">
@@ -374,21 +396,25 @@ export const ReadmeGenerator: React.FC<ReadmeGeneratorProps> = ({ onGenerate }) 
                 </div>
               </div>
               
-              {/* 생성 버튼 */}
               <Button 
                 className="w-full" 
                 onClick={handleGenerate}
+                disabled={isLoading}
               >
-                Generate README
+                {isLoading ? 'Generating...' : 'Generate README'}
               </Button>
+
+              {error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
             </div>
           </Card>
 
-          {/* 프리뷰 영역 */}
           <Card className="p-4">
             <div className="mb-4 flex justify-between items-center">
               <h3 className="text-lg font-semibold">Preview</h3>
-              <Button variant="outline" size="sm">Copy Markdown</Button>
             </div>
             <div className="prose max-w-none bg-white rounded-lg p-4 h-[600px] overflow-y-auto">
               <div className="text-gray-500">
