@@ -1,16 +1,39 @@
 "use client"
 
-import { ReadmeGenerator } from '@/components/readme-generator'
+import React, { useState } from 'react';
+import ReadmeGenerator from '@/components/readme-generator';
+import ReadmeResult from '@/components/readme-result';
+
+interface GeneratedData {
+  projectName: string;
+  description: string;
+  features: string[];
+  techStack: string[];
+}
 
 export default function Home() {
+  const [step, setStep] = useState<'input' | 'result'>('input');
+  const [generatedData, setGeneratedData] = useState<GeneratedData | null>(null);
+
+  const handleGenerate = (data: GeneratedData) => {
+    setGeneratedData(data);
+    setStep('result');
+  };
+
+  const handleBack = () => {
+    setStep('input');
+  };
+
   return (
     <main>
-      <ReadmeGenerator 
-        onGenerate={(data) => {
-          console.log('Generated Data:', data);
-          // TODO: 여기에 README 생성 로직 추가
-        }}
-      />
+      {step === 'input' ? (
+        <ReadmeGenerator onGenerate={handleGenerate} />
+      ) : (
+        <ReadmeResult 
+          data={generatedData} 
+          onBack={handleBack}
+        />
+      )}
     </main>
-  )
+  );
 }

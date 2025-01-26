@@ -1,9 +1,10 @@
+"use client"
+
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { Alert } from '@/components/ui/alert';
 import { Upload } from 'lucide-react';
 
 interface ReadmeGeneratorProps {
@@ -15,7 +16,94 @@ interface ReadmeGeneratorProps {
   }) => void;
 }
 
-export const ReadmeGenerator = ({ onGenerate }: ReadmeGeneratorProps) => {
+// 기술 스택 감지 함수
+const detectTechStack = (dependencies: any = {}, devDependencies: any = {}) => {
+  const allDeps = { ...dependencies, ...devDependencies };
+  const detectedStack: string[] = [];
+
+  // 기술 스택 매핑
+  const techMapping: Record<string, string> = {
+    'react': 'React',
+    'next': 'Next.js',
+    'typescript': 'TypeScript',
+    'express': 'Express',
+    'mongoose': 'MongoDB',
+    'pg': 'PostgreSQL',
+    'redis': 'Redis',
+    'jest': 'Jest',
+    'tailwindcss': 'TailwindCSS',
+    'graphql': 'GraphQL'
+  };
+
+  Object.keys(allDeps).forEach(dep => {
+    const normalizedDep = dep.toLowerCase();
+    Object.entries(techMapping).forEach(([key, value]) => {
+      if (normalizedDep.includes(key) && !detectedStack.includes(value)) {
+        detectedStack.push(value);
+      }
+    });
+  });
+
+  return detectedStack;
+};
+
+// Gradle 파일 파싱
+const parseGradleFile = (content: string) => {
+  const detected = {
+    techStack: [] as string[],
+    features: [] as string[]
+  };
+
+  // Gradle 의존성 매핑
+  const gradleDependencies: Record<string, string> = {
+    'org.springframework.boot': 'Spring Boot',
+    'org.springframework': 'Spring Framework',
+    'org.jetbrains.kotlin': 'Kotlin',
+    'io.ktor': 'Ktor',
+    'org.hibernate': 'Hibernate',
+    'junit': 'JUnit'
+  };
+
+  // plugins와 dependencies 블록 찾기
+  const pluginsMatch = content.match(/plugins\s*{[^}]*}/g);
+  const dependenciesMatch = content.match(/dependencies\s*{[^}]*}/g);
+
+  // plugins 분석
+  if (pluginsMatch) {
+    const plugins = pluginsMatch[0];
+    if (plugins.includes('org.springframework.boot')) {
+      detected.techStack.push('Spring Boot');
+    }
+    if (plugins.includes('kotlin')) {
+      detected.techStack.push('Kotlin');
+    }
+  }
+
+  // dependencies 분석
+  if (dependenciesMatch) {
+    const dependencies = dependenciesMatch[0];
+    Object.entries(gradleDependencies).forEach(([key, value]) => {
+      if (dependencies.includes(key)) {
+        detected.techStack.push(value);
+      }
+    });
+
+    // 기능 감지
+    if (dependencies.includes('spring-boot-starter-web')) {
+      detected.features.push('REST API');
+    }
+    if (dependencies.includes('spring-boot-starter-data-jpa')) {
+      detected.features.push('Database Integration');
+    }
+    if (dependencies.includes('spring-boot-starter-security')) {
+      detected.features.push('Authentication');
+    }
+  }
+
+  return detected;
+};
+
+export const ReadmeGenerator: React.FC<ReadmeGeneratorProps> = ({ onGenerate }) => {
   // State 관리
   const [projectName, setProjectName] = useState('');
   const [description, setDescription] = useState('');
@@ -48,6 +136,58 @@ export const ReadmeGenerator = ({ onGenerate }: ReadmeGeneratorProps) => {
     'TailwindCSS'
   ];
 
+  // 파일 업로드 핸들러
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const content = await file.text();
+      let detected = { techStack: [] as string[], features: [] as string[] };
+
+      // 파일 타입에 따른 파서 선택
+      if (file.name.endsWith('.json')) {
+        const packageJson = JSON.parse(content);
+        detected.techStack = detectTechStack(
+          packageJson.dependencies,
+          packageJson.devDependencies
+        );
+        
+        // 프로젝트 정보 설정
+        if (packageJson.name) setProjectName(packageJson.name);
+        if (packageJson.description) setDescription(packageJson.description);
+
+      } else if (file.name.endsWith('.gradle') || file.name.endsWith('.gradle.kts')) {
+        detected = parseGradleFile(content);
+      }
+
+      // 감지된 기술 스택 설정
+      setSelectedStack(prevStack => {
+        const newStack = [...prevStack];
+        detected.techStack.forEach(stack => {
+          if (!newStack.includes(stack)) {
+            newStack.push(stack);
+          }
+        });
+        return newStack;
+      });
+
+      // 감지된 기능 설정
+      setSelectedFeatures(prevFeatures => {
+        const newFeatures = [...prevFeatures];
+        detected.features.forEach(feature => {
+          if (!newFeatures.includes(feature)) {
+            newFeatures.push(feature);
+          }
+        });
+        return newFeatures;
+      });
+
+    } catch (error) {
+      console.error('Error parsing file:', error);
+    }
+  };
+
   // 기능 추가 핸들러
   const handleAddFeature = () => {
     if (newFeature.trim() && !selectedFeatures.includes(newFeature.trim())) {
@@ -64,10 +204,20 @@ export const ReadmeGenerator = ({ onGenerate }: ReadmeGeneratorProps) => {
     }
   };
 
+  // README 생성 핸들러
+  const handleGenerate = () => {
+    onGenerate({
+      projectName,
+      description,
+      features: selectedFeatures,
+      techStack: selectedStack
+    });
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold mb-6">G.README Generator</h1>
+        <h1 className="text-3xl font-bold mb-6">README Generator</h1>
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* 입력 폼 */}
@@ -78,6 +228,7 @@ export const ReadmeGenerator = ({ onGenerate }: ReadmeGeneratorProps) => {
                 <input
                   type="file"
                   accept=".json,.gradle,.txt"
+                  onChange={handleFileUpload}
                   className="hidden"
                   id="file-upload"
                 />
@@ -226,12 +377,7 @@ export const ReadmeGenerator = ({ onGenerate }: ReadmeGeneratorProps) => {
               {/* 생성 버튼 */}
               <Button 
                 className="w-full" 
-                onClick={() => onGenerate({
-                  projectName,
-                  description,
-                  features: selectedFeatures,
-                  techStack: selectedStack
-                })}
+                onClick={handleGenerate}
               >
                 Generate README
               </Button>
