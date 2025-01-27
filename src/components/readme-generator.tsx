@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Upload } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { analyzeFile } from '@/lib/file-analyzer';
 
 interface ReadmeGeneratorProps {
   onGenerate: (data: {
@@ -14,97 +15,11 @@ interface ReadmeGeneratorProps {
     description: string;
     features: string[];
     techStack: string[];
-    markdown?: string;
   }) => void;
 }
 
-interface ProjectData {
-  name?: string;
-  description?: string;
-  dependencies?: Record<string, string>;
-  devDependencies?: Record<string, string>;
-}
-
-const detectTechStack = (dependencies: Record<string, string> = {}, devDependencies: Record<string, string> = {}) => {
-  const allDeps = { ...dependencies, ...devDependencies };
-  const detectedStack: string[] = [];
-
-  const techMapping: Record<string, string> = {
-    'react': 'React',
-    'next': 'Next.js',
-    'typescript': 'TypeScript',
-    'express': 'Express',
-    'mongoose': 'MongoDB',
-    'pg': 'PostgreSQL',
-    'redis': 'Redis',
-    'jest': 'Jest',
-    'tailwindcss': 'TailwindCSS',
-    'graphql': 'GraphQL'
-  };
-
-  Object.keys(allDeps).forEach(dep => {
-    const normalizedDep = dep.toLowerCase();
-    Object.entries(techMapping).forEach(([key, value]) => {
-      if (normalizedDep.includes(key) && !detectedStack.includes(value)) {
-        detectedStack.push(value);
-      }
-    });
-  });
-
-  return detectedStack;
-};
-
-const parseGradleFile = (content: string) => {
-  const detected = {
-    techStack: [] as string[],
-    features: [] as string[]
-  };
-
-  const gradleDependencies: Record<string, string> = {
-    'org.springframework.boot': 'Spring Boot',
-    'org.springframework': 'Spring Framework',
-    'org.jetbrains.kotlin': 'Kotlin',
-    'io.ktor': 'Ktor',
-    'org.hibernate': 'Hibernate',
-    'junit': 'JUnit'
-  };
-
-  const pluginsMatch = content.match(/plugins\s*{[^}]*}/g);
-  const dependenciesMatch = content.match(/dependencies\s*{[^}]*}/g);
-
-  if (pluginsMatch) {
-    const plugins = pluginsMatch[0];
-    if (plugins.includes('org.springframework.boot')) {
-      detected.techStack.push('Spring Boot');
-    }
-    if (plugins.includes('kotlin')) {
-      detected.techStack.push('Kotlin');
-    }
-  }
-
-  if (dependenciesMatch) {
-    const dependencies = dependenciesMatch[0];
-    Object.entries(gradleDependencies).forEach(([key, value]) => {
-      if (dependencies.includes(key)) {
-        detected.techStack.push(value);
-      }
-    });
-
-    if (dependencies.includes('spring-boot-starter-web')) {
-      detected.features.push('REST API');
-    }
-    if (dependencies.includes('spring-boot-starter-data-jpa')) {
-      detected.features.push('Database Integration');
-    }
-    if (dependencies.includes('spring-boot-starter-security')) {
-      detected.features.push('Authentication');
-    }
-  }
-
-  return detected;
-};
-
-const ReadmeGenerator: React.FC<ReadmeGeneratorProps> = ({ onGenerate }) => {
+export default function ReadmeGenerator({ onGenerate }: ReadmeGeneratorProps) {
+  // 기본 상태 관리
   const [projectName, setProjectName] = useState('');
   const [description, setDescription] = useState('');
   const [newFeature, setNewFeature] = useState('');
@@ -114,76 +29,83 @@ const ReadmeGenerator: React.FC<ReadmeGeneratorProps> = ({ onGenerate }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const commonFeatures = [
-    'Authentication',
-    'REST API',
-    'Database Integration',
-    'File Upload',
-    'Real-time Updates',
-    'Search Functionality',
-    'User Management',
-    'Responsive Design'
-  ];
 
-  const commonStacks = [
-    'React',
-    'Next.js',
-    'TypeScript',
-    'Node.js',
-    'Express',
-    'MongoDB',
-    'PostgreSQL',
-    'TailwindCSS'
-  ];
 
+  // 파일 업로드 처리
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     try {
+      setIsLoading(true);
+      setError(null);
       const content = await file.text();
-      let detected = { techStack: [] as string[], features: [] as string[] };
 
+      // package.json 파일 처리
       if (file.name.endsWith('.json')) {
-        const packageJson = JSON.parse(content) as ProjectData;
-        detected.techStack = detectTechStack(
-          packageJson.dependencies,
-          packageJson.devDependencies
-        );
-        
-        if (packageJson.name) setProjectName(packageJson.name);
-        if (packageJson.description) setDescription(packageJson.description);
+        try {
+          const packageJson = JSON.parse(content);
+          if (packageJson.name) setProjectName(packageJson.name);
+          if (packageJson.description) setDescription(packageJson.description);
 
-      } else if (file.name.endsWith('.gradle') || file.name.endsWith('.gradle.kts')) {
-        detected = parseGradleFile(content);
+          // API를 통한 파일 분석
+          const response = await fetch('/api/analyze', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              fileContent: content,
+              fileName: file.name,
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to analyze file');
+          }
+
+          const analysis = await response.json();
+          
+          // 기술 스택 업데이트
+          if (analysis.techStack) {
+            setSelectedStack(prev => {
+              const newStack = [...prev];
+              analysis.techStack.forEach((tech: string) => {
+                if (!newStack.includes(tech)) {
+                  newStack.push(tech);
+                }
+              });
+              return newStack;
+            });
+          }
+
+          // 기능 업데이트
+          if (analysis.features) {
+            setSelectedFeatures(prev => {
+              const newFeatures = [...prev];
+              analysis.features.forEach((feature: string) => {
+                if (!newFeatures.includes(feature)) {
+                  newFeatures.push(feature);
+                }
+              });
+              return newFeatures;
+            });
+          }
+        } catch (e) {
+          console.error('Error parsing JSON:', e);
+          setError('Failed to parse package.json file');
+          return;
+        }
       }
 
-      setSelectedStack(prevStack => {
-        const newStack = [...prevStack];
-        detected.techStack.forEach(stack => {
-          if (!newStack.includes(stack)) {
-            newStack.push(stack);
-          }
-        });
-        return newStack;
-      });
-
-      setSelectedFeatures(prevFeatures => {
-        const newFeatures = [...prevFeatures];
-        detected.features.forEach(feature => {
-          if (!newFeatures.includes(feature)) {
-            newFeatures.push(feature);
-          }
-        });
-        return newFeatures;
-      });
-
     } catch (error) {
-      console.error('Error parsing file:', error);
-      setError('Failed to parse the uploaded file');
+      setError(error instanceof Error ? error.message : 'Failed to analyze file');
+    } finally {
+      setIsLoading(false);
     }
   };
 
+  // 기능 추가/제거 핸들러
   const handleAddFeature = () => {
     if (newFeature.trim() && !selectedFeatures.includes(newFeature.trim())) {
       setSelectedFeatures([...selectedFeatures, newFeature.trim()]);
@@ -191,6 +113,7 @@ const ReadmeGenerator: React.FC<ReadmeGeneratorProps> = ({ onGenerate }) => {
     }
   };
 
+  // 기술 스택 추가/제거 핸들러
   const handleAddStack = () => {
     if (newStack.trim() && !selectedStack.includes(newStack.trim())) {
       setSelectedStack([...selectedStack, newStack.trim()]);
@@ -198,45 +121,23 @@ const ReadmeGenerator: React.FC<ReadmeGeneratorProps> = ({ onGenerate }) => {
     }
   };
 
+  // README 생성 처리
   const handleGenerate = async () => {
     if (!projectName.trim() || !description.trim()) {
       setError('Project name and description are required');
       return;
     }
 
-    setIsLoading(true);
-    setError(null);
-
     try {
-      const response = await fetch('/api/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          projectName,
-          description,
-          features: selectedFeatures,
-          techStack: selectedStack,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to generate README');
-      }
-
-      const data = await response.json();
+      setIsLoading(true);
       onGenerate({
         projectName,
         description,
         features: selectedFeatures,
         techStack: selectedStack,
-        markdown: data.markdown,
       });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-      console.error('Error:', err);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'An error occurred');
     } finally {
       setIsLoading(false);
     }
@@ -250,6 +151,7 @@ const ReadmeGenerator: React.FC<ReadmeGeneratorProps> = ({ onGenerate }) => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Card className="p-4">
             <div className="space-y-6">
+              {/* 파일 업로드 영역 */}
               <div className="border-2 border-dashed rounded-lg p-4 text-center">
                 <input
                   type="file"
@@ -269,6 +171,7 @@ const ReadmeGenerator: React.FC<ReadmeGeneratorProps> = ({ onGenerate }) => {
                 </label>
               </div>
 
+              {/* 프로젝트 정보 입력 */}
               <div>
                 <label className="text-sm font-medium mb-2 block">
                   Project Name
@@ -292,6 +195,7 @@ const ReadmeGenerator: React.FC<ReadmeGeneratorProps> = ({ onGenerate }) => {
                 />
               </div>
 
+              {/* 기능 입력 영역 */}
               <div>
                 <label className="text-sm font-medium mb-2 block">Features</label>
                 <div className="flex flex-wrap gap-2 mb-2">
@@ -321,29 +225,10 @@ const ReadmeGenerator: React.FC<ReadmeGeneratorProps> = ({ onGenerate }) => {
                   />
                   <Button onClick={handleAddFeature} size="sm">Add</Button>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {commonFeatures.map((feature) => (
-                    <button
-                      key={feature}
-                      onClick={() => {
-                        if (selectedFeatures.includes(feature)) {
-                          setSelectedFeatures(selectedFeatures.filter(f => f !== feature));
-                        } else {
-                          setSelectedFeatures([...selectedFeatures, feature]);
-                        }
-                      }}
-                      className={`px-3 py-1 rounded-full text-sm border ${
-                        selectedFeatures.includes(feature)
-                          ? 'bg-blue-100 text-blue-800 border-blue-200'
-                          : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
-                      }`}
-                    >
-                      {feature}
-                    </button>
-                  ))}
-                </div>
+
               </div>
               
+              {/* 기술 스택 입력 영역 */}
               <div>
                 <label className="text-sm font-medium mb-2 block">Tech Stack</label>
                 <div className="flex flex-wrap gap-2 mb-2">
@@ -373,29 +258,10 @@ const ReadmeGenerator: React.FC<ReadmeGeneratorProps> = ({ onGenerate }) => {
                   />
                   <Button onClick={handleAddStack} size="sm">Add</Button>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {commonStacks.map((stack) => (
-                    <button
-                      key={stack}
-                      onClick={() => {
-                        if (selectedStack.includes(stack)) {
-                          setSelectedStack(selectedStack.filter(s => s !== stack));
-                        } else {
-                          setSelectedStack([...selectedStack, stack]);
-                        }
-                      }}
-                      className={`px-3 py-1 rounded-full text-sm border ${
-                        selectedStack.includes(stack)
-                          ? 'bg-green-100 text-green-800 border-green-200'
-                          : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
-                      }`}
-                    >
-                      {stack}
-                    </button>
-                  ))}
-                </div>
+
               </div>
               
+              {/* 생성 버튼 및 에러 메시지 */}
               <Button 
                 className="w-full" 
                 onClick={handleGenerate}
@@ -412,6 +278,7 @@ const ReadmeGenerator: React.FC<ReadmeGeneratorProps> = ({ onGenerate }) => {
             </div>
           </Card>
 
+          {/* 프리뷰 영역 */}
           <Card className="p-4">
             <div className="mb-4 flex justify-between items-center">
               <h3 className="text-lg font-semibold">Preview</h3>
@@ -426,6 +293,4 @@ const ReadmeGenerator: React.FC<ReadmeGeneratorProps> = ({ onGenerate }) => {
       </div>
     </div>
   );
-};
-
-export default ReadmeGenerator;
+}

@@ -1,13 +1,15 @@
 src/
 ├── app/
 │   ├── api/
+│   │   ├── analyze/
+│   │   │   └── route.ts        # 파일 분석 API (Tech Stack 감지)
 │   │   └── generate/
-│   │       └── route.ts        # Claude API 연동 및 README 생성 로직
-│   ├── layout.tsx             # 앱 레이아웃
-│   └── page.tsx              # 메인 페이지 (ReadmeGenerator/Result 전환)
+│   │       └── route.ts        # README 생성 API (Claude 연동)
+│   ├── layout.tsx             # 레이아웃
+│   └── page.tsx              # 메인 페이지 (상태 관리)
 │
 ├── components/
-│   ├── readme-generator.tsx   # README 생성 입력 폼
+│   ├── readme-generator.tsx   # README 생성 입력 폼 
 │   ├── readme-result.tsx      # 생성된 README 결과 화면
 │   └── ui/                    # shadcn/ui 컴포넌트들
 │       ├── alert.tsx
@@ -18,9 +20,9 @@ src/
 │       └── textarea.tsx
 │
 └── lib/
-    └── utils.ts              # 유틸리티 함수들
+   └── utils.ts              # 유틸리티 함수
 
-주요 설정 파일들:
+기타 주요 설정 파일:
 ├── .env.local               # 환경 변수 (ANTHROPIC_API_KEY)
 ├── package.json            # 프로젝트 의존성
 ├── next.config.js         # Next.js 설정
