@@ -1,8 +1,10 @@
+// src/app/page.tsx
 "use client"
 
 import { useState } from 'react';
-import ReadmeGenerator from '@/components/readme-generator';
-import ReadmeResult from '@/components/readme-result';
+import { ReadmeGenerator } from '@/components/readme-generator';  // 중괄호 추가
+import { ReadmeResult } from '@/components/readme-result';
+
 
 interface GeneratedData {
   projectName: string;
@@ -26,12 +28,12 @@ export default function Home() {
   };
 
   return (
-    <main>
+    <main className="min-h-screen bg-gray-50">
       {step === 'input' ? (
         <ReadmeGenerator onGenerate={handleGenerate} />
       ) : (
         <ReadmeResult 
-          data={generatedData} 
+          data={generatedData!} 
           onBack={handleBack}
         />
       )}

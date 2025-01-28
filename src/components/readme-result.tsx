@@ -1,79 +1,33 @@
+// src/components/readme-result.tsx
 "use client"
 
-import React, { useState } from 'react';
+import React from 'react';
+import ReactMarkdown from 'react-markdown';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertCircle, CheckCircle2, Edit, Copy, Download } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-
-// Types
-interface ReadmeData {
-  projectName: string;
-  description: string;
-  features: string[];
-  techStack: string[];
-}
+import { ProjectInfo, Feature, TechStack, License } from '@/lib/types';
 
 interface ReadmeResultProps {
-  data?: ReadmeData;
-  onBack?: () => void;
+  data: {
+    projectInfo: ProjectInfo;
+    features: Feature[];
+    techStack: TechStack[];
+    license: License;
+    markdown: string;
+  };
+  onBack: () => void;
 }
 
-// Default data for testing and fallback
-const defaultData: ReadmeData = {
-  projectName: 'My Project',
-  description: 'Project description',
-  features: [],
-  techStack: []
-};
-
-const ReadmeResult: React.FC<ReadmeResultProps> = ({ 
-  data = defaultData, 
-  onBack = () => {} 
-}) => {
-  const [activeTab, setActiveTab] = useState<'preview' | 'markdown'>('preview');
-  const [copySuccess, setCopySuccess] = useState(false);
-
-  // Safely access data properties with fallbacks
-  const {
-    projectName = defaultData.projectName,
-    description = defaultData.description,
-    features = defaultData.features,
-    techStack = defaultData.techStack
-  } = data || {};
-
-  const readmeContent = `# ${projectName}
-
-${description}
-
-## Features
-${features.length > 0 
-  ? features.map(feature => `- ${feature}`).join('\n')
-  : '- Feature 1\n- Feature 2\n- Feature 3'}
-
-## Tech Stack
-${techStack.length > 0 
-  ? techStack.map(tech => `- ${tech}`).join('\n')
-  : '- Technology 1\n- Technology 2\n- Technology 3'}
-
-## Installation
-\`\`\`bash
-npm install ${projectName.toLowerCase().replace(/\s+/g, '-')}
-\`\`\`
-
-## Usage
-\`\`\`javascript
-// Example code will be here
-\`\`\`
-
-## License
-MIT License
-`;
+export function ReadmeResult({ data, onBack }: ReadmeResultProps) {
+  const [activeTab, setActiveTab] = React.useState<'preview' | 'markdown'>('preview');
+  const [copySuccess, setCopySuccess] = React.useState(false);
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(readmeContent);
+      await navigator.clipboard.writeText(data.markdown);
       setCopySuccess(true);
       setTimeout(() => setCopySuccess(false), 2000);
     } catch (err) {
@@ -82,7 +36,7 @@ MIT License
   };
 
   const handleDownload = () => {
-    const blob = new Blob([readmeContent], { type: 'text/markdown' });
+    const blob = new Blob([data.markdown], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -104,7 +58,6 @@ MIT License
         </Alert>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Left Panel - Controls & Suggestions */}
           <Card className="p-4">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold">Enhance Your README</h2>
@@ -115,7 +68,6 @@ MIT License
             </div>
 
             <div className="space-y-4">
-              {/* Suggestions */}
               <div className="border rounded-lg p-4 hover:bg-gray-50">
                 <div className="flex items-center text-amber-600 mb-2">
                   <AlertCircle className="h-4 w-4 mr-2" />
@@ -130,20 +82,12 @@ MIT License
                 </ul>
               </div>
 
-              {/* Download & Copy Buttons */}
               <div className="flex gap-2">
-                <Button 
-                  className="flex-1" 
-                  variant="outline"
-                  onClick={handleCopy}
-                >
+                <Button className="flex-1" variant="outline" onClick={handleCopy}>
                   <Copy className="h-4 w-4 mr-2" />
                   {copySuccess ? 'Copied!' : 'Copy Markdown'}
                 </Button>
-                <Button 
-                  className="flex-1"
-                  onClick={handleDownload}
-                >
+                <Button className="flex-1" onClick={handleDownload}>
                   <Download className="h-4 w-4 mr-2" />
                   Download
                 </Button>
@@ -151,9 +95,8 @@ MIT License
             </div>
           </Card>
 
-          {/* Right Panel - Preview */}
           <Card className="p-4">
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <Tabs value={activeTab} onValueChange={(value: 'preview' | 'markdown') => setActiveTab(value)}>
               <div className="flex justify-between items-center mb-4">
                 <TabsList>
                   <TabsTrigger value="preview">Preview</TabsTrigger>
@@ -162,17 +105,15 @@ MIT License
               </div>
               
               <TabsContent value="preview" className="mt-0">
-                <div className="prose prose-slate max-w-none bg-white rounded-lg p-4 h-[600px] overflow-y-auto">
-                  <div dangerouslySetInnerHTML={{ 
-                    __html: readmeContent.replace(/\n/g, '<br>') 
-                  }} />
+                <div className="prose max-w-none bg-white rounded-lg p-4 h-[600px] overflow-y-auto">
+                  <ReactMarkdown>{data.markdown}</ReactMarkdown>
                 </div>
               </TabsContent>
               
               <TabsContent value="markdown" className="mt-0">
                 <div className="bg-gray-900 rounded-lg p-4 h-[600px] overflow-y-auto">
                   <pre className="text-gray-100 font-mono text-sm whitespace-pre-wrap">
-                    {readmeContent}
+                    {data.markdown}
                   </pre>
                 </div>
               </TabsContent>
@@ -182,6 +123,4 @@ MIT License
       </div>
     </div>
   );
-};
-
-export default ReadmeResult;
+}

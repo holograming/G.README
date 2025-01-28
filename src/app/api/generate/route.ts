@@ -1,52 +1,47 @@
+// src/app/api/generate/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 
-// Initialize Anthropic client
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY || '',
 });
 
 export async function POST(request: NextRequest) {
-  if (request.method !== 'POST') {
+  if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json(
-      { error: 'Method not allowed' }, 
-      { status: 405 }
+      { error: 'API key not configured' },
+      { status: 500 }
     );
   }
 
   try {
-    // Parse request body
-    const body = await request.json();
-    const { projectName, description, features, techStack } = body;
+    const { projectName, description, features, techStack, license } = await request.json();
 
-    // Validate required fields
-    if (!projectName || !description) {
-      return NextResponse.json(
-        { error: 'Project name and description are required' },
-        { status: 400 }
-      );
-    }
+   // api/generate/route.ts의 prompt 수정
+    const prompt = `Create a concise README for:
 
-    // Create prompt for Claude
-    const prompt = `Create a detailed README.md file for a project with the following details:
+    Project: ${projectName}
+    Description: ${description}
+    ${features.length > 0 ? `Features:\n${features.map(f => `- ${f}`).join('\n')}` : ''}
+    ${techStack.length > 0 ? `Tech Stack:\n${techStack.map(t => `- ${t}`).join('\n')}` : ''}
+    License: ${license.type}
 
-Project Name: ${projectName}
-Description: ${description}
-Features: ${features.join(', ')}
-Tech Stack: ${techStack.join(', ')}
+    Guidelines:
+    - Keep descriptions under 10 words
+    - Add status badges for tech stack
+    - Use simple, clear sections
+    - Include emojis sparingly
 
-The README should include:
-1. Clear project title and description
-2. Features list with brief explanations
-3. Technology stack details
-4. Installation instructions
-5. Usage examples with code snippets
-6. Contributing guidelines
-7. License information
+    Status badges to include:
+    ${techStack.map(tech => {
+      const normalizedTech = tech.toLowerCase();
+      if (normalizedTech.includes('react')) return '![React](https://img.shields.io/badge/React-blue?logo=react)';
+      if (normalizedTech.includes('typescript')) return '![TypeScript](https://img.shields.io/badge/TypeScript-blue?logo=typescript)';
+      if (normalizedTech.includes('next')) return '![Next.js](https://img.shields.io/badge/Next.js-black?logo=next.js)';
+      // ... 더 많은 기술 스택 뱃지
+      return '';
+    }).filter(Boolean).join('\n')}`;
 
-Please format the response in Markdown.`;
-
-    // Call Claude API
     const message = await anthropic.messages.create({
       model: 'claude-3-opus-20240229',
       max_tokens: 4000,
@@ -59,16 +54,12 @@ Please format the response in Markdown.`;
       ],
     });
 
-    // Extract markdown content from the response
-    const markdown = message.content[0].text;
-
-    // Return response
-    return NextResponse.json({ markdown });
+    return NextResponse.json({ 
+      markdown: message.content[0].text 
+    });
 
   } catch (error) {
     console.error('Error generating README:', error);
-    
-    // Return error response
     return NextResponse.json(
       { error: 'Failed to generate README. Please try again.' },
       { status: 500 }

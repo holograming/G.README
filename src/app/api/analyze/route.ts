@@ -1,3 +1,5 @@
+// src/app/api/analyze/route.ts
+import { generateAnalyzePrompt } from '@/lib/prompts';
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 
@@ -6,49 +8,30 @@ const anthropic = new Anthropic({
 });
 
 export async function POST(request: NextRequest) {
-  if (request.method !== 'POST') {
+  if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json(
-      { error: 'Method not allowed' },
-      { status: 405 }
+      { error: 'API key not configured' },
+      { status: 500 }
     );
   }
 
   try {
-    const body = await request.json();
-    const { fileContent, fileName } = body;
+    const { fileContent, fileName } = await request.json();
 
-    if (!fileContent) {
+    if (!fileContent || !fileName) {
       return NextResponse.json(
-        { error: 'File content is required' },
+        { error: 'File content and name are required' },
         { status: 400 }
       );
     }
 
-    // Create prompt for Claude
-    const prompt = `You are a project analyzer that identifies technologies and features from project files.
-    
-Analyze the following ${fileName} file and extract:
-1. Technologies used (programming languages, frameworks, libraries)
-2. Project features or capabilities
+    // 프롬프트 생성
+    const prompt = generateAnalyzePrompt({
+      fileContent,
+      fileName
+    });
 
-File content:
-\`\`\`
-${fileContent}
-\`\`\`
-
-Respond ONLY with a JSON object in this exact format:
-{
-  "techStack": ["technology1", "technology2", ...],
-  "features": ["feature1", "feature2", ...]
-}
-
-Notes:
-- Include only confirmed technologies and features
-- Use standard technology names (e.g., "React" not "react.js")
-- Keep feature descriptions concise and clear
-- Do not include uncertain items`;
-
-    // Call Claude API
+    // Claude API 호출
     const message = await anthropic.messages.create({
       model: 'claude-3-opus-20240229',
       max_tokens: 1000,
@@ -61,8 +44,8 @@ Notes:
       ],
     });
 
+    // 응답 파싱
     try {
-      // Parse the response as JSON
       const analysisResult = JSON.parse(message.content[0].text);
       return NextResponse.json(analysisResult);
     } catch (parseError) {
