@@ -130,7 +130,7 @@ export default function ReadmeGenerator({ onGenerate }: ReadmeGeneratorProps) {
         <div className="border-2 border-dashed rounded-lg p-4 text-center">
           <input
             type="file"
-            accept=".json,.gradle,.txt"
+            accept=".json,.xml,.yaml,.yml,.gradle,.properties,.env,.txt,.kts"
             onChange={handleFileUpload}
             className="hidden"
             id="file-upload"
@@ -141,7 +141,7 @@ export default function ReadmeGenerator({ onGenerate }: ReadmeGeneratorProps) {
               프로젝트 파일 업로드
             </p>
             <p className="text-xs text-gray-500">
-              (package.json, build.gradle, pom.xml)
+              (package.json, build.gradle, kts, CMakeLists.txt, pom.xml etc)
             </p>
           </label>
         </div>
