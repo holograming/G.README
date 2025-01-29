@@ -1,4 +1,3 @@
-// src/components/readme-generator.tsx
 "use client"
 
 import { useState } from 'react';
@@ -20,12 +19,11 @@ interface ReadmeGeneratorProps {
       type: string;
       author: string;
     };
-    markdown: string;
   }) => void;
 }
 
-export function ReadmeGenerator({ onGenerate }: ReadmeGeneratorProps) {
-  // State 관리
+export default function ReadmeGenerator({ onGenerate }: ReadmeGeneratorProps) {
+  // 기본 상태 관리
   const [projectName, setProjectName] = useState('');
   const [description, setDescription] = useState('');
   const [features, setFeatures] = useState<string[]>([]);
@@ -37,18 +35,19 @@ export function ReadmeGenerator({ onGenerate }: ReadmeGeneratorProps) {
     author: ''
   });
   
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
+  // 파일 분석 처리
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     try {
       setIsAnalyzing(true);
+      setError(null);
+      
       const content = await file.text();
-
       const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -58,7 +57,7 @@ export function ReadmeGenerator({ onGenerate }: ReadmeGeneratorProps) {
         }),
       });
 
-      if (!response.ok) throw new Error('Analysis failed');
+      if (!response.ok) throw new Error('분석에 실패했습니다');
 
       const analysis = await response.json();
       
@@ -73,72 +72,27 @@ export function ReadmeGenerator({ onGenerate }: ReadmeGeneratorProps) {
       }
 
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to analyze file');
+      setError(error instanceof Error ? error.message : '파일 분석 중 오류가 발생했습니다');
     } finally {
       setIsAnalyzing(false);
     }
   };
 
-  
-  const handleGenerate = async () => {
+  // README 생성 시작
+  const handleGenerate = () => {
     if (!projectName || !description) {
-      setError('Project name and description are required');
+      setError('프로젝트 이름과 설명은 필수입니다');
       return;
     }
-  
-    try {
-      setIsLoading(true);
-      setError(null);
-  
-      const response = await fetch('/api/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          projectName,
-          description,
-          features,
-          techStack,
-          license,
-          shouldAnalyze: features.length === 0 && techStack.length === 0
-        }),
-      });
-  
-      if (!response.ok) {
-        throw new Error('Failed to generate README');
-      }
-  
-      const { markdown } = await response.json();
-      
-      // README 다운로드
-      const blob = new Blob([markdown], { type: 'text/markdown' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'README.md';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-  
-      // 폼 초기화
-      setProjectName('');
-      setDescription('');
-      setFeatures([]);
-      setTechStack([]);
-      setNewFeature('');
-      setNewTech('');
-      setLicense({
-        type: 'MIT',
-        author: ''
-      });
-  
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'An error occurred');
-    } finally {
-      setIsLoading(false);
-    }
+
+    setError(null);
+    onGenerate({
+      projectName,
+      description,
+      features,
+      techStack,
+      license,
+    });
   };
 
   // Features 관리
@@ -156,20 +110,20 @@ export function ReadmeGenerator({ onGenerate }: ReadmeGeneratorProps) {
       setNewTech('');
     }
   };
-  
+
   return (
     <div className="max-w-3xl mx-auto p-4">
-      {isAnalyzing ? (
+      {isAnalyzing && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
           <Card className="p-6 w-[300px]">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4" />
-              <h3 className="text-lg font-semibold">Analyzing File</h3>
-              <p className="text-sm text-gray-400">Please wait...</p>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold">파일 분석 중</h3>
+              <p className="text-sm text-gray-500">잠시만 기다려주세요...</p>
             </div>
           </Card>
         </div>
-      ) : null}
+      )}
 
       {/* 파일 업로드 */}
       <Card className="mb-6 p-4">
@@ -184,7 +138,10 @@ export function ReadmeGenerator({ onGenerate }: ReadmeGeneratorProps) {
           <label htmlFor="file-upload" className="cursor-pointer">
             <Upload className="mx-auto h-8 w-8 text-gray-400" />
             <p className="mt-1 text-sm text-gray-600">
-              Click to upload project file
+              프로젝트 파일 업로드
+            </p>
+            <p className="text-xs text-gray-500">
+              (package.json, build.gradle, pom.xml)
             </p>
           </label>
         </div>
@@ -192,26 +149,26 @@ export function ReadmeGenerator({ onGenerate }: ReadmeGeneratorProps) {
 
       {/* 프로젝트 정보 */}
       <Card className="mb-6 p-4">
-        <h2 className="text-xl font-bold mb-4">Project Information</h2>
+        <h2 className="text-xl font-bold mb-4">프로젝트 정보</h2>
         <div className="space-y-4">
           <div>
             <label className="text-sm font-medium mb-2 block">
-              Project Name
+              프로젝트 이름
             </label>
             <Input
               value={projectName}
               onChange={(e) => setProjectName(e.target.value)}
-              placeholder="Enter project name"
+              placeholder="프로젝트 이름을 입력하세요"
             />
           </div>
           <div>
             <label className="text-sm font-medium mb-2 block">
-              Description
+              설명
             </label>
             <Textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Explain what your project does"
+              placeholder="프로젝트에 대한 설명을 입력하세요"
               className="h-32"
             />
           </div>
@@ -221,7 +178,7 @@ export function ReadmeGenerator({ onGenerate }: ReadmeGeneratorProps) {
       {/* Features */}
       <Card className="mb-6 p-4">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold">Features</h2>
+          <h2 className="text-xl font-bold">주요 기능</h2>
         </div>
         <div className="space-y-4">
           <div className="flex flex-wrap gap-2 mb-2">
@@ -235,14 +192,14 @@ export function ReadmeGenerator({ onGenerate }: ReadmeGeneratorProps) {
                   onClick={() => setFeatures(features.filter((_, i) => i !== index))}
                   className="hover:text-blue-600"
                 >
-                  ×
+                  <X className="h-4 w-4" />
                 </button>
               </span>
             ))}
           </div>
           <div className="flex gap-2">
             <Input
-              placeholder="Add new feature"
+              placeholder="새로운 기능 추가"
               value={newFeature}
               onChange={(e) => setNewFeature(e.target.value)}
               onKeyPress={(e) => {
@@ -251,7 +208,14 @@ export function ReadmeGenerator({ onGenerate }: ReadmeGeneratorProps) {
                 }
               }}
             />
-            <Button size="sm" onClick={addFeature}>Add</Button>
+            <Button 
+              size="sm" 
+              onClick={addFeature}
+              className="shrink-0"
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              추가
+            </Button>
           </div>
         </div>
       </Card>
@@ -259,7 +223,7 @@ export function ReadmeGenerator({ onGenerate }: ReadmeGeneratorProps) {
       {/* Tech Stack */}
       <Card className="mb-6 p-4">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold">Tech Stack</h2>
+          <h2 className="text-xl font-bold">기술 스택</h2>
         </div>
         <div className="space-y-4">
           <div className="flex flex-wrap gap-2 mb-2">
@@ -273,14 +237,14 @@ export function ReadmeGenerator({ onGenerate }: ReadmeGeneratorProps) {
                   onClick={() => setTechStack(techStack.filter((_, i) => i !== index))}
                   className="hover:text-green-600"
                 >
-                  ×
+                  <X className="h-4 w-4" />
                 </button>
               </span>
             ))}
           </div>
           <div className="flex gap-2">
             <Input
-              placeholder="Add technology"
+              placeholder="기술 스택 추가"
               value={newTech}
               onChange={(e) => setNewTech(e.target.value)}
               onKeyPress={(e) => {
@@ -289,21 +253,28 @@ export function ReadmeGenerator({ onGenerate }: ReadmeGeneratorProps) {
                 }
               }}
             />
-            <Button size="sm" onClick={addTech}>Add</Button>
+            <Button 
+              size="sm" 
+              onClick={addTech}
+              className="shrink-0"
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              추가
+            </Button>
           </div>
         </div>
       </Card>
 
       {/* License */}
       <Card className="mb-6 p-4">
-        <h2 className="text-xl font-bold mb-4">License</h2>
+        <h2 className="text-xl font-bold mb-4">라이선스</h2>
         <div className="space-y-4">
           <Select
             value={license.type}
             onValueChange={(type) => setLicense({ ...license, type })}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Select license" />
+              <SelectValue placeholder="라이선스 선택" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="MIT">MIT License</SelectItem>
@@ -314,7 +285,7 @@ export function ReadmeGenerator({ onGenerate }: ReadmeGeneratorProps) {
           </Select>
 
           <Input
-            placeholder="Author name"
+            placeholder="작성자 이름"
             value={license.author}
             onChange={(e) => setLicense({ ...license, author: e.target.value })}
           />
@@ -325,9 +296,9 @@ export function ReadmeGenerator({ onGenerate }: ReadmeGeneratorProps) {
       <Button 
         className="w-full"
         onClick={handleGenerate}
-        disabled={isLoading || isAnalyzing}
+        disabled={isAnalyzing}
       >
-        {isLoading ? 'Generating...' : 'Generate README'}
+        README 생성하기
       </Button>
 
       {error && (
