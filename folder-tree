@@ -1,0 +1,50 @@
+├── app
+│   ├── api
+│   │   ├── analyze
+│   │   │   └── route.ts
+│   │   └── generate
+│   │       └── route.ts
+│   ├── favicon.ico
+│   ├── globals.css
+│   ├── layout.tsx
+│   └── page.tsx
+├── components
+│   ├── preview
+│   │   └── markdown-preview.tsx
+│   ├── readme-generator.tsx
+│   ├── readme-result.tsx
+│   ├── sections
+│   │   ├── features.tsx
+│   │   ├── license.tsx
+│   │   ├── project-info.tsx
+│   │   └── tech-stack.tsx
+│   └── ui
+│       ├── alert.tsx
+│       ├── button.tsx
+│       ├── card.tsx
+│       ├── input.tsx
+│       ├── select.tsx
+│       ├── switch.tsx
+│       ├── tabs.tsx
+│       └── textarea.tsx
+└── lib
+    ├── file-analyzer.ts
+    ├── prompts
+    │   ├── index.ts
+    │   ├── templates
+    │   │   ├── analyze.ts
+    │   │   ├── index.ts
+    │   │   ├── preview.ts
+    │   │   └── readme.ts
+    │   └── types.ts
+    ├── types.ts
+    └── utils.ts
+
+기타 주요 설정 파일:
+├── .env.local               # 환경 변수 (ANTHROPIC_API_KEY)
+├── package.json            # 프로젝트 의존성
+├── next.config.js         # Next.js 설정
+├── tailwind.config.js     # Tailwind CSS 설정
+└── tsconfig.json          # TypeScript 설정
+
+
