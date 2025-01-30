@@ -1,0 +1,25 @@
+ name: GREADME Preview Deployment
+ env:
+   VERCEL_ORG_ID: $
+   VERCEL_PROJECT_ID: $
+    
+ on:
+   push:
+     branches:
+       - "staging"
+    
+ jobs:
+   Deploy-Preview:
+     runs-on: ubuntu-latest
+     steps:
+       - uses: actions/checkout@v2
+       - name: Install Vercel CLI
+         run: npm install --global vercel@latest
+       - name: Pull Vercel Environment Information
+         run: vercel pull --yes --environment=preview --token=$
+       - name: Build Project Artifacts
+         run: vercel build --token=$
+       - name: Assign beta domain
+         run: |
+           vercel deploy --prebuilt --token=$ > domain.txt
+           vercel alias set `cat domain.txt` staging-greadme.vercel.app --scope $ --token $
