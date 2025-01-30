@@ -29,3 +29,9 @@ export interface GeneratePromptData {
       usage?: string;
     };
   }
+
+
+  export interface AnalyzePromptData {
+    fileContent: string;
+    fileName: string;
+  }
