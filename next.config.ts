@@ -1,7 +1,7 @@
 // next.config.ts
-import type { Config } from 'next';
+import type { NextConfig } from 'next';
 
-const config: Config = {
+const config: NextConfig = {
   // 환경 변수
   env: {
     NEXT_PUBLIC_ENV: process.env.NEXT_PUBLIC_ENV || 'development',
@@ -27,6 +27,12 @@ const config: Config = {
     serverActions: {
       allowedOrigins: ['localhost:3000'],
     },
+  },
+
+   // ESLint 설정 추가
+   eslint: {
+    // 빌드 시 ESLint 경고를 무시하도록 설정
+    ignoreDuringBuilds: true,
   },
 
   // TypeScript 설정

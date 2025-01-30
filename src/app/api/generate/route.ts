@@ -1,4 +1,5 @@
 // src/app/api/generate/route.ts
+//import { getServerConfig } from '@/lib/config';
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 
@@ -6,7 +7,31 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY || '',
 });
 
+
+interface ContentBlock {
+  type: 'text';
+  text: string;
+}
+
+interface ClaudeMessage {
+  content: ContentBlock[];
+}
+
+interface GenerateRequest {
+  projectName: string;
+  description: string;
+  features: string[];
+  techStack: string[];
+  license: {
+    type: string;
+  };
+}
+
+
 export async function POST(request: NextRequest) {
+
+  //const config = getServerConfig();
+
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json(
       { error: 'API key not configured' },
@@ -15,7 +40,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { projectName, description, features, techStack, license } = await request.json();
+    const { projectName, description, features, techStack, license } = await request.json() as GenerateRequest;
 
    // api/generate/route.ts의 prompt 수정
     const prompt = `Create a concise README for:
@@ -52,7 +77,7 @@ export async function POST(request: NextRequest) {
           content: prompt,
         },
       ],
-    });
+    }) as ClaudeMessage;
 
     return NextResponse.json({ 
       markdown: message.content[0].text 
