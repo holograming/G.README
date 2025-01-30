@@ -9,7 +9,7 @@
        - "main"
     
  jobs:
-   Deploy-Preview:
+   Deploy-Production:
      runs-on: ubuntu-latest
      steps:
        - uses: actions/checkout@v2
