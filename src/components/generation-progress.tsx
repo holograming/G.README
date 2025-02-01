@@ -1,4 +1,4 @@
-// generation-progress.tsx
+// src/components/generation-progress.tsx
 "use client"
 
 import React from 'react';
@@ -10,8 +10,9 @@ type GenerationStep = 'analyzing' | 'generating' | 'formatting' | 'failed';
 
 interface GenerationProgressProps {
   step: GenerationStep;
-  error?: string;
+  error?: string | null; // null도 허용하도록 수정
   onRetry?: () => void;
+  isGenerating: boolean;
 }
 
 export function GenerationProgress({ step, error, onRetry }: GenerationProgressProps) {
