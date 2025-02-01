@@ -1,10 +1,11 @@
-// generation-progress.tsx
+// src/pages/page.tsx
 "use client"
 
-import { useState } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import ReadmeGenerator from '@/components/readme-generator';
 import { GenerationProgress } from '@/components/generation-progress';
 import { ReadmeResult } from '@/components/readme-result';
+import { useEffect } from 'react';
 
 type PageState = 'input' | 'generating' | 'success';
 type GenerationStep = 'analyzing' | 'generating' | 'formatting' | 'failed';
@@ -26,12 +27,34 @@ export default function Home() {
   const [generatedMarkdown, setGeneratedMarkdown] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [lastGenerationData, setLastGenerationData] = useState<GeneratedData | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  
+  // Cleanup function for component unmount
+  const abortController = useRef<AbortController | null>(null);
+  
+  useEffect(() => {
+    return () => {
+      if (abortController.current) {
+        abortController.current.abort();
+      }
+    };
+  }, []);
 
-  const handleGenerate = async (data: GeneratedData) => {
+  const handleGenerate = useCallback(async (data: GeneratedData) => {
+    // 이미 생성 중이면 중복 요청 방지
+    if (isGenerating) return;
+
     try {
+      setIsGenerating(true);
       setError(null);
       setLastGenerationData(data);
       setPageState('generating');
+      
+      // 이전 요청이 있다면 중단
+      if (abortController.current) {
+        abortController.current.abort();
+      }
+      abortController.current = new AbortController();
       
       // 분석 단계
       setGenerationStep('analyzing');
@@ -45,40 +68,52 @@ export default function Home() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(data),
+        signal: abortController.current.signal
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || 'README 생성에 실패했습니다');
       }
 
-      const { markdown } = await response.json();
+      const result = await response.json();
+      if (!result || typeof result.markdown !== 'string') {
+        throw new Error('잘못된 응답 형식입니다');
+      }
       
       // 포맷팅
       setGenerationStep('formatting');
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       // 생성된 마크다운 저장 및 상태 변경
-      setGeneratedMarkdown(markdown);
+      setGeneratedMarkdown(result.markdown);
       setPageState('success');
 
     } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        return; // 의도적인 중단은 에러처리 하지 않음
+      }
       console.error('Generation failed:', error);
       setError(error instanceof Error ? error.message : 'README 생성 중 오류가 발생했습니다');
       setGenerationStep('failed');
+    } finally {
+      setIsGenerating(false);
     }
-  };
+  }, [isGenerating]);
 
-  const handleRetry = () => {
-    if (lastGenerationData) {
+  const handleRetry = useCallback(() => {
+    if (lastGenerationData && !isGenerating) {
       handleGenerate(lastGenerationData);
     }
-  };
+  }, [lastGenerationData, isGenerating, handleGenerate]);
 
   return (
     <main className="min-h-screen bg-gray-50">
       {pageState === 'input' && (
-        <ReadmeGenerator onGenerate={handleGenerate} />
+        <ReadmeGenerator 
+          onGenerate={handleGenerate}
+          isGenerating={isGenerating}
+        />
       )}
       
       {pageState === 'generating' && (
@@ -86,16 +121,17 @@ export default function Home() {
           step={generationStep} 
           error={error}
           onRetry={handleRetry}
+          isGenerating={isGenerating}
         />
       )}
       
-      {pageState === 'success' && (
+      {pageState === 'success' && lastGenerationData && (
         <ReadmeResult 
           data={{
-            projectName: lastGenerationData?.projectName || '',
-            description: lastGenerationData?.description || '',
-            features: lastGenerationData?.features || [],
-            techStack: lastGenerationData?.techStack || [],
+            projectName: lastGenerationData.projectName,
+            description: lastGenerationData.description,
+            features: lastGenerationData.features,
+            techStack: lastGenerationData.techStack,
             markdown: generatedMarkdown
           }}
           onBack={() => setPageState('input')}
