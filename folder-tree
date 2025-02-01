@@ -9,37 +9,39 @@
 │   ├── layout.tsx
 │   └── page.tsx
 ├── components
-│   ├── preview
-│   │   └── markdown-preview.tsx
+│   ├── generation-progress.tsx
+│   ├── language-selector.tsx
 │   ├── readme-generator.tsx
 │   ├── readme-result.tsx
-│   ├── sections
-│   │   ├── features.tsx
-│   │   ├── license.tsx
-│   │   ├── project-info.tsx
-│   │   └── tech-stack.tsx
 │   └── ui
 │       ├── alert.tsx
 │       ├── button.tsx
 │       ├── card.tsx
+│       ├── dropdown-menu.tsx
 │       ├── input.tsx
 │       ├── select.tsx
 │       ├── switch.tsx
 │       ├── tabs.tsx
 │       └── textarea.tsx
-└── lib
-    ├── file-analyzer.ts
-    ├── prompts
-    │   ├── index.ts
-    │   ├── templates
-    │   │   ├── analyze.ts
-    │   │   ├── index.ts
-    │   │   ├── preview.ts
-    │   │   └── readme.ts
-    │   └── types.ts
-    ├── types.ts
-    └── utils.ts
-
+├── lib
+│   ├── config.ts
+│   ├── file-analyzer.ts
+│   ├── i18n
+│   │   ├── language-context.tsx
+│   │   ├── translations.ts
+│   │   └── types.ts
+│   ├── prompts
+│   │   ├── index.ts
+│   │   ├── templates
+│   │   │   ├── analyze.ts
+│   │   │   ├── index.ts
+│   │   │   └── readme.ts
+│   │   └── types.ts
+│   ├── types.ts
+│   └── utils.ts
+└── types
+    └── config.ts
+    
 기타 주요 설정 파일:
 ├── .env.local               # 환경 변수 (ANTHROPIC_API_KEY)
 ├── package.json            # 프로젝트 의존성
