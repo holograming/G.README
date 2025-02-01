@@ -1,3 +1,4 @@
+// generation-progress.tsx
 "use client"
 
 import { useState } from 'react';
@@ -6,6 +7,7 @@ import { GenerationProgress } from '@/components/generation-progress';
 import { ReadmeResult } from '@/components/readme-result';
 
 type PageState = 'input' | 'generating' | 'success';
+type GenerationStep = 'analyzing' | 'generating' | 'formatting' | 'failed';
 
 interface GeneratedData {
   projectName: string;
@@ -20,11 +22,15 @@ interface GeneratedData {
 
 export default function Home() {
   const [pageState, setPageState] = useState<PageState>('input');
-  const [generationStep, setGenerationStep] = useState<'analyzing' | 'generating' | 'formatting'>('analyzing');
+  const [generationStep, setGenerationStep] = useState<GenerationStep>('analyzing');
   const [generatedMarkdown, setGeneratedMarkdown] = useState<string>('');
+  const [error, setError] = useState<string | null>(null);
+  const [lastGenerationData, setLastGenerationData] = useState<GeneratedData | null>(null);
 
   const handleGenerate = async (data: GeneratedData) => {
     try {
+      setError(null);
+      setLastGenerationData(data);
       setPageState('generating');
       
       // 분석 단계
@@ -42,7 +48,8 @@ export default function Home() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate README');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'README 생성에 실패했습니다');
       }
 
       const { markdown } = await response.json();
@@ -57,8 +64,14 @@ export default function Home() {
 
     } catch (error) {
       console.error('Generation failed:', error);
-      setPageState('input');
-      // TODO: 에러 처리
+      setError(error instanceof Error ? error.message : 'README 생성 중 오류가 발생했습니다');
+      setGenerationStep('failed');
+    }
+  };
+
+  const handleRetry = () => {
+    if (lastGenerationData) {
+      handleGenerate(lastGenerationData);
     }
   };
 
@@ -69,16 +82,20 @@ export default function Home() {
       )}
       
       {pageState === 'generating' && (
-        <GenerationProgress step={generationStep} />
+        <GenerationProgress 
+          step={generationStep} 
+          error={error}
+          onRetry={handleRetry}
+        />
       )}
       
       {pageState === 'success' && (
         <ReadmeResult 
           data={{
-            projectName: '',
-            description: '',
-            features: [],
-            techStack: [],
+            projectName: lastGenerationData?.projectName || '',
+            description: lastGenerationData?.description || '',
+            features: lastGenerationData?.features || [],
+            techStack: lastGenerationData?.techStack || [],
             markdown: generatedMarkdown
           }}
           onBack={() => setPageState('input')}
