@@ -1,6 +1,7 @@
+// src/components/readme-generator.tsx
 "use client"
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,21 +10,26 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Upload, Plus, X } from 'lucide-react';
 
+const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1MB
+const MAX_PROJECT_NAME_LENGTH = 50;
+const MAX_DESCRIPTION_LENGTH = 200;
+
+interface GeneratorData {
+  projectName: string;
+  description: string;
+  features: string[];
+  techStack: string[];
+  license: {
+    type: string;
+    author: string;
+  };
+}
+
 interface ReadmeGeneratorProps {
-  onGenerate: (data: {
-    projectName: string;
-    description: string;
-    features: string[];
-    techStack: string[];
-    license: {
-      type: string;
-      author: string;
-    };
-  }) => void;
+  onGenerate: (data: GeneratorData) => Promise<void>;
 }
 
 export default function ReadmeGenerator({ onGenerate }: ReadmeGeneratorProps) {
-  // 기본 상태 관리
   const [projectName, setProjectName] = useState('');
   const [description, setDescription] = useState('');
   const [features, setFeatures] = useState<string[]>([]);
@@ -37,11 +43,16 @@ export default function ReadmeGenerator({ onGenerate }: ReadmeGeneratorProps) {
   
   const [error, setError] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 파일 분석 처리
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+
+    if (file.size > MAX_FILE_SIZE) {
+      setError('파일 크기는 1MB를 초과할 수 없습니다.');
+      return;
+    }
 
     try {
       setIsAnalyzing(true);
@@ -57,14 +68,14 @@ export default function ReadmeGenerator({ onGenerate }: ReadmeGeneratorProps) {
         }),
       });
 
-      if (!response.ok) throw new Error('분석에 실패했습니다');
+      if (!response.ok) throw new Error('파일 분석에 실패했습니다');
 
       const analysis = await response.json();
       
       if (file.name.endsWith('.json')) {
         const packageJson = JSON.parse(content);
-        setProjectName(packageJson.name || '');
-        setDescription(packageJson.description || '');
+        setProjectName((packageJson.name || '').slice(0, MAX_PROJECT_NAME_LENGTH));
+        setDescription((packageJson.description || '').slice(0, MAX_DESCRIPTION_LENGTH));
       }
 
       if (analysis.techStack) {
@@ -78,37 +89,52 @@ export default function ReadmeGenerator({ onGenerate }: ReadmeGeneratorProps) {
     }
   };
 
-  // README 생성 시작
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (!projectName || !description) {
       setError('프로젝트 이름과 설명은 필수입니다');
       return;
     }
 
-    setError(null);
-    onGenerate({
-      projectName,
-      description,
-      features,
-      techStack,
-      license,
-    });
+    if (isSubmitting) return;
+
+    try {
+      setIsSubmitting(true);
+      setError(null);
+
+      await onGenerate({
+        projectName,
+        description,
+        features,
+        techStack,
+        license,
+      });
+    } catch (error) {
+      setError(error instanceof Error ? error.message : '생성 중 오류가 발생했습니다');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  // Features 관리
-  const addFeature = () => {
+  const addFeature = useCallback(() => {
     if (newFeature.trim()) {
-      setFeatures([...features, newFeature.trim()]);
+      setFeatures(prev => [...prev, newFeature.trim()]);
       setNewFeature('');
     }
-  };
+  }, [newFeature]);
 
-  // Tech Stack 관리
-  const addTech = () => {
+  const addTech = useCallback(() => {
     if (newTech.trim()) {
-      setTechStack([...techStack, newTech.trim()]);
+      setTechStack(prev => [...prev, newTech.trim()]);
       setNewTech('');
     }
+  }, [newTech]);
+
+  const removeFeature = (index: number) => {
+    setFeatures(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const removeTech = (index: number) => {
+    setTechStack(prev => prev.filter((_, i) => i !== index));
   };
 
   return (
@@ -134,40 +160,50 @@ export default function ReadmeGenerator({ onGenerate }: ReadmeGeneratorProps) {
             onChange={handleFileUpload}
             className="hidden"
             id="file-upload"
+            disabled={isAnalyzing}
           />
           <label htmlFor="file-upload" className="cursor-pointer">
             <Upload className="mx-auto h-8 w-8 text-gray-400" />
             <p className="mt-1 text-sm text-gray-600">
-              프로젝트 파일 업로드
+              프로젝트 파일 업로드 (최대 1MB)
             </p>
             <p className="text-xs text-gray-500">
-              (package.json, build.gradle, kts, CMakeLists.txt, pom.xml etc)
+              (package.json, build.gradle, pom.xml etc)
             </p>
           </label>
         </div>
       </Card>
 
-      {/* 프로젝트 정보 */}
       <Card className="mb-6 p-4">
         <h2 className="text-xl font-bold mb-4">프로젝트 정보</h2>
         <div className="space-y-4">
           <div>
             <label className="text-sm font-medium mb-2 block">
-              프로젝트 이름
+              프로젝트 이름 ({projectName.length}/{MAX_PROJECT_NAME_LENGTH})
             </label>
             <Input
               value={projectName}
-              onChange={(e) => setProjectName(e.target.value)}
+              onChange={(e) => {
+                const newValue = e.target.value;
+                if (newValue.length <= MAX_PROJECT_NAME_LENGTH) {
+                  setProjectName(newValue);
+                }
+              }}
               placeholder="프로젝트 이름을 입력하세요"
             />
           </div>
           <div>
             <label className="text-sm font-medium mb-2 block">
-              설명
+              설명 ({description.length}/{MAX_DESCRIPTION_LENGTH})
             </label>
             <Textarea
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={(e) => {
+                const newValue = e.target.value;
+                if (newValue.length <= MAX_DESCRIPTION_LENGTH) {
+                  setDescription(newValue);
+                }
+              }}
               placeholder="프로젝트에 대한 설명을 입력하세요"
               className="h-32"
             />
@@ -175,7 +211,6 @@ export default function ReadmeGenerator({ onGenerate }: ReadmeGeneratorProps) {
         </div>
       </Card>
 
-      {/* Features */}
       <Card className="mb-6 p-4">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold">주요 기능</h2>
@@ -189,7 +224,7 @@ export default function ReadmeGenerator({ onGenerate }: ReadmeGeneratorProps) {
               >
                 {feature}
                 <button
-                  onClick={() => setFeatures(features.filter((_, i) => i !== index))}
+                  onClick={() => removeFeature(index)}
                   className="hover:text-blue-600"
                 >
                   <X className="h-4 w-4" />
@@ -220,7 +255,6 @@ export default function ReadmeGenerator({ onGenerate }: ReadmeGeneratorProps) {
         </div>
       </Card>
 
-      {/* Tech Stack */}
       <Card className="mb-6 p-4">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold">기술 스택</h2>
@@ -234,7 +268,7 @@ export default function ReadmeGenerator({ onGenerate }: ReadmeGeneratorProps) {
               >
                 {tech}
                 <button
-                  onClick={() => setTechStack(techStack.filter((_, i) => i !== index))}
+                  onClick={() => removeTech(index)}
                   className="hover:text-green-600"
                 >
                   <X className="h-4 w-4" />
@@ -265,7 +299,6 @@ export default function ReadmeGenerator({ onGenerate }: ReadmeGeneratorProps) {
         </div>
       </Card>
 
-      {/* License */}
       <Card className="mb-6 p-4">
         <h2 className="text-xl font-bold mb-4">라이선스</h2>
         <div className="space-y-4">
@@ -292,13 +325,12 @@ export default function ReadmeGenerator({ onGenerate }: ReadmeGeneratorProps) {
         </div>
       </Card>
 
-      {/* Generate Button */}
       <Button 
         className="w-full"
         onClick={handleGenerate}
-        disabled={isAnalyzing}
+        disabled={isSubmitting || isAnalyzing}
       >
-        README 생성하기
+        {isSubmitting ? '생성 중...' : 'README 생성하기'}
       </Button>
 
       {error && (
