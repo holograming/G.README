@@ -1,4 +1,4 @@
-// src/pages/page.tsx
+// src/app/page.tsx
 "use client"
 
 import { useState, useCallback, useRef } from 'react';
@@ -7,8 +7,7 @@ import { GenerationProgress } from '@/components/generation-progress';
 import { ReadmeResult } from '@/components/readme-result';
 import { useEffect } from 'react';
 
-type PageState = 'input' | 'generating' | 'success';
-type GenerationStep = 'analyzing' | 'generating' | 'formatting' | 'failed';
+type PageState = 'input' | 'generating' | 'success' | 'error';
 
 interface GeneratedData {
   projectName: string;
@@ -26,19 +25,6 @@ export default function Home() {
   const [generationStep, setGenerationStep] = useState<GenerationStep>('analyzing');
   const [generatedMarkdown, setGeneratedMarkdown] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
-  const [lastGenerationData, setLastGenerationData] = useState<GeneratedData | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-  
-  // Cleanup function for component unmount
-  const abortController = useRef<AbortController | null>(null);
-  
-  useEffect(() => {
-    return () => {
-      if (abortController.current) {
-        abortController.current.abort();
-      }
-    };
-  }, []);
 
   const handleGenerate = useCallback(async (data: GeneratedData) => {
     // 이미 생성 중이면 중복 요청 방지
@@ -49,18 +35,11 @@ export default function Home() {
       setError(null);
       setLastGenerationData(data);
       setPageState('generating');
+      setError(null);
       
-      // 이전 요청이 있다면 중단
-      if (abortController.current) {
-        abortController.current.abort();
-      }
-      abortController.current = new AbortController();
-      
-      // 분석 단계
       setGenerationStep('analyzing');
       await new Promise(resolve => setTimeout(resolve, 1500));
 
-      // README 생성
       setGenerationStep('generating');
       const response = await fetch('/api/generate', {
         method: 'POST',
@@ -72,8 +51,7 @@ export default function Home() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'README 생성에 실패했습니다');
+        throw new Error('README 생성에 실패했습니다.');
       }
 
       const result = await response.json();
@@ -81,12 +59,10 @@ export default function Home() {
         throw new Error('잘못된 응답 형식입니다');
       }
       
-      // 포맷팅
       setGenerationStep('formatting');
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // 생성된 마크다운 저장 및 상태 변경
-      setGeneratedMarkdown(result.markdown);
+      setGeneratedMarkdown(markdown);
       setPageState('success');
 
     } catch (error) {
@@ -94,16 +70,8 @@ export default function Home() {
         return; // 의도적인 중단은 에러처리 하지 않음
       }
       console.error('Generation failed:', error);
-      setError(error instanceof Error ? error.message : 'README 생성 중 오류가 발생했습니다');
-      setGenerationStep('failed');
-    } finally {
-      setIsGenerating(false);
-    }
-  }, [isGenerating]);
-
-  const handleRetry = useCallback(() => {
-    if (lastGenerationData && !isGenerating) {
-      handleGenerate(lastGenerationData);
+      setError(error instanceof Error ? error.message : 'README 생성 중 오류가 발생했습니다.');
+      setPageState('error');
     }
   }, [lastGenerationData, isGenerating, handleGenerate]);
 
@@ -125,7 +93,7 @@ export default function Home() {
         />
       )}
       
-      {pageState === 'success' && lastGenerationData && (
+      {(pageState === 'success' || pageState === 'error') && (
         <ReadmeResult 
           data={{
             projectName: lastGenerationData.projectName,
@@ -134,7 +102,15 @@ export default function Home() {
             techStack: lastGenerationData.techStack,
             markdown: generatedMarkdown
           }}
-          onBack={() => setPageState('input')}
+          error={error}
+          onBack={() => {
+            setPageState('input');
+            setError(null);
+          }}
+          onRetry={() => {
+            setError(null);
+            setPageState('input');
+          }}
         />
       )}
     </main>
