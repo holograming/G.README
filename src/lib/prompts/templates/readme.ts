@@ -2,54 +2,60 @@
 import { GeneratePromptData } from '../types';
 
 export function generateReadmePrompt(data: GeneratePromptData): string {
-  const { projectInfo, features, techStack, license, installation } = data;
+  const { projectInfo, features, techStack, license, dependencies, installation } = data;
   
-  const categorizedTech = techStack.reduce((acc, tech) => {
-    if (!acc[tech.category]) acc[tech.category] = [];
-    acc[tech.category].push(`${tech.name} (${tech.version}) - ${tech.purpose}`);
-    return acc;
-  }, {} as Record<string, string[]>);
+  return `Create a professional README.md file for ${projectInfo.name} using the following format and STRICTLY using ONLY the information provided below:
 
-  return `Create a professional README.md file using the following information:
+# ${projectInfo.name}
 
-# Project Details
-Name: ${projectInfo.name}
-Short Description: ${projectInfo.shortDescription}
-Detailed Description:
 ${projectInfo.detailedDescription}
 
-# Features
+${techStack && techStack.length > 0 ? 
+  techStack.map(tech => `![${tech.name}](https://img.shields.io/badge/${tech.name.replace(/\./g, '%2E')}-${tech.version}-blue)`).join('\n') 
+  : ''}
+
+${features && features.length > 0 ? `
+## Features
 ${features.map(f => `
 - ${f.title}
-  Description: ${f.description}
+  ${f.description}
   ${f.example ? `Example: ${f.example}` : ''}`).join('\n')}
+` : ''}
 
-# Technology Stack
-${Object.entries(categorizedTech).map(([category, techs]) => `
-${category}:
-${techs.map(t => `- ${t}`).join('\n')}`).join('\n')}
+${dependencies && dependencies.length > 0 ? `## Dependencies
 
-# License
-Type: ${license.type}
-Author: ${license.author}
-Year: ${license.year}
-${license.customText ? `Custom Text: ${license.customText}` : ''}
+| Package | Version |
+|---------|---------|
+${dependencies.map(dep => `| ${dep.name} | ${dep.version} |`).join('\n')}
+` : ''}
 
-${installation ? `# Installation Guide
-Requirements: ${installation.requirements?.join(', ')}
-Installation Steps: ${installation.installation?.join('\n')}
-Configuration: ${installation.configuration}
-Usage: ${installation.usage}` : ''}
+${installation ? `## Installation
+${installation.requirements && installation.requirements.length > 0 ? `### Requirements
+\`\`\`bash
+${installation.requirements.join('\n')}\`\`\`` : ''}
 
-Please create a README.md with:
-1. Clear header with project name and badges for main technologies
-2. Concise project description that explains the value proposition
-3. Features section with detailed explanations and examples
-4. Technology stack organized by category
-5. Installation and usage instructions (if provided)
-6. License section with proper formatting
-7. Add emoji icons where appropriate
-8. Include a table of contents
+${installation.installation && installation.installation.length > 0 ? `### Steps
+\`\`\`bash
+${installation.installation.join('\n')}\`\`\`` : ''}
 
-Format the output in clean Markdown with proper heading hierarchy and sections separated by horizontal rules.`;
+${installation.configuration ? `### Configuration
+${installation.configuration}` : ''}
+
+${installation.usage ? `### Usage
+\`\`\`bash
+${installation.usage}\`\`\`` : ''}
+` : ''}
+
+## License
+${license.type}
+
+Copyright (c) ${license.year} ${license.author}
+
+IMPORTANT INSTRUCTIONS:
+1. Generate README content using ONLY the information provided above 
+2. DO NOT invent or add any features, technologies, or information not explicitly provided
+3. DO NOT include sections that have no content provided
+4. If a section has empty data, omit that section entirely
+5. Never add placeholders or examples if data is missing`;
+
 }

@@ -43,7 +43,6 @@ export const LICENSE_TEMPLATES = {
 
 export interface ProjectInfo {
   name: string;
-  shortDescription: string;
   detailedDescription: string;
 }
 
@@ -56,7 +55,6 @@ export interface Feature {
 export interface TechStack {
   name: string;
   version: string;
-  category: 'Frontend' | 'Backend' | 'DevOps' | 'Other';
   purpose: string;
 }
 

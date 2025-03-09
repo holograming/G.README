@@ -1,339 +1,212 @@
 // src/components/readme-generator.tsx
 "use client"
 
-import { useState, useCallback } from 'react';
-import { Card } from '@/components/ui/card';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Upload, Plus, X } from 'lucide-react';
+import { type LicenseType } from '@/lib/types';
 
-const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1MB
-const MAX_PROJECT_NAME_LENGTH = 50;
-const MAX_DESCRIPTION_LENGTH = 200;
-
-interface GeneratorData {
-  projectName: string;
-  description: string;
-  features: string[];
-  techStack: string[];
-  license: {
-    type: string;
-    author: string;
-  };
-}
+import { FileUploader } from './common/FileUploader';
+import { ProjectInfoSection } from './sections/ProjectInfoSection';
+import { FeaturesSection } from './sections/FeaturesSection';
+import { TechStackSection } from './sections/TechStackSection';
+import { LicenseSection } from './sections/LicenseSection';
+import { DependenciesSection } from './sections/DependenciesSection';
+import { InstallationSection } from './sections/InstallationSection';
+import { UsageSection } from './sections/UsageSection';
+import { CollapsibleSection } from './sections/CollapsibleSection';
+import { AlertCircle } from 'lucide-react';
 
 interface ReadmeGeneratorProps {
-  onGenerate: (data: GeneratorData) => Promise<void>;
+  onGenerate: (data: {
+    projectName: string;
+    description: string;
+    features: string[];
+    techStack: string[];
+    license: {
+      type: string;
+      author: string;
+      year: string;
+    };
+    dependencies?: { name: string; version: string; }[];
+    installation?: string[];
+    usage?: string[];
+  }) => void;
 }
 
 export default function ReadmeGenerator({ onGenerate }: ReadmeGeneratorProps) {
+  // 기본 상태
   const [projectName, setProjectName] = useState('');
   const [description, setDescription] = useState('');
   const [features, setFeatures] = useState<string[]>([]);
   const [techStack, setTechStack] = useState<string[]>([]);
-  const [newFeature, setNewFeature] = useState('');
-  const [newTech, setNewTech] = useState('');
   const [license, setLicense] = useState({
-    type: 'MIT',
-    author: ''
+    type: 'MIT' as LicenseType,
+    author: '',
+    year: new Date().getFullYear().toString()
   });
   
+  // 분석 결과 상태
+  const [analyzedFeatures, setAnalyzedFeatures] = useState<string[]>([]);
+  const [analyzedData, setAnalyzedData] = useState<{
+    dependencies?: { name: string; version: string; }[];
+    installation?: string[];
+    usage?: string[];
+  }>({});
+  
   const [error, setError] = useState<string | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [validationError, setValidationError] = useState(false);
+  
+  // 프로젝트 정보 섹션으로 스크롤하기 위한 ref
+  const projectInfoRef = useRef<HTMLDivElement>(null);
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    if (file.size > MAX_FILE_SIZE) {
-      setError('파일 크기는 1MB를 초과할 수 없습니다.');
-      return;
+  // 검증 오류 발생 시 프로젝트 정보 섹션으로 스크롤
+  useEffect(() => {
+    if (validationError && projectInfoRef.current) {
+      projectInfoRef.current.scrollIntoView({ behavior: 'smooth' });
     }
+  }, [validationError]);
 
-    try {
-      setIsAnalyzing(true);
-      setError(null);
-      
-      const content = await file.text();
-      const response = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fileContent: content,
-          fileName: file.name,
-        }),
-      });
+  // 파일 분석 결과 처리
+  const handleFileAnalyzed = (analysis: {
+    projectName?: string;
+    description?: string;
+    techStack?: string[];
+    features?: string[];
+    dependencies?: { name: string; version: string; type?: string }[];
+    installation?: string[];
+    usage?: string[];
+  }) => {
+    console.log('파일 분석 결과:', analysis);
+    
+    if (analysis.projectName) setProjectName(analysis.projectName);
+    if (analysis.description) setDescription(analysis.description);
+    if (analysis.techStack) setTechStack(analysis.techStack);
+    if (analysis.features) {
+      setAnalyzedFeatures(analysis.features);
+    }
+    
+    // 분석된 데이터 저장
+    setAnalyzedData({
+      dependencies: analysis.dependencies,
+      installation: analysis.installation,
+      usage: analysis.usage,
+    });
+  };
 
-      if (!response.ok) throw new Error('파일 분석에 실패했습니다');
-
-      const analysis = await response.json();
-      
-      if (file.name.endsWith('.json')) {
-        const packageJson = JSON.parse(content);
-        setProjectName((packageJson.name || '').slice(0, MAX_PROJECT_NAME_LENGTH));
-        setDescription((packageJson.description || '').slice(0, MAX_DESCRIPTION_LENGTH));
-      }
-
-      if (analysis.techStack) {
-        setTechStack(analysis.techStack);
-      }
-
-    } catch (error) {
-      setError(error instanceof Error ? error.message : '파일 분석 중 오류가 발생했습니다');
-    } finally {
-      setIsAnalyzing(false);
+  // 분석된 기능 추가
+  const handleAddAnalyzedFeature = (feature: string) => {
+    if (!features.includes(feature)) {
+      setFeatures([...features, feature]);
+      // 추가된 기능은 분석된 목록에서 제거
+      setAnalyzedFeatures(analyzedFeatures.filter(f => f !== feature));
     }
   };
 
-  const handleGenerate = async () => {
-    if (!projectName || !description) {
+  // README 생성 처리
+  const handleGenerate = () => {
+    // 필수 입력 검증
+    if (!projectName.trim() || !description.trim()) {
       setError('프로젝트 이름과 설명은 필수입니다');
+      setValidationError(true);
       return;
     }
 
-    if (isSubmitting) return;
-
-    try {
-      setIsSubmitting(true);
-      setError(null);
-
-      await onGenerate({
-        projectName,
-        description,
-        features,
-        techStack,
-        license,
-      });
-    } catch (error) {
-      setError(error instanceof Error ? error.message : '생성 중 오류가 발생했습니다');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const addFeature = useCallback(() => {
-    if (newFeature.trim()) {
-      setFeatures(prev => [...prev, newFeature.trim()]);
-      setNewFeature('');
-    }
-  }, [newFeature]);
-
-  const addTech = useCallback(() => {
-    if (newTech.trim()) {
-      setTechStack(prev => [...prev, newTech.trim()]);
-      setNewTech('');
-    }
-  }, [newTech]);
-
-  const removeFeature = (index: number) => {
-    setFeatures(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const removeTech = (index: number) => {
-    setTechStack(prev => prev.filter((_, i) => i !== index));
+    setError(null);
+    setValidationError(false);
+    onGenerate({
+      projectName,
+      description,
+      features,
+      techStack,
+      license,
+      // 분석된 데이터도 포함
+      dependencies: analyzedData.dependencies,
+      installation: analyzedData.installation,
+      usage: analyzedData.usage
+    });
   };
 
   return (
     <div className="max-w-3xl mx-auto p-4">
-      {isAnalyzing && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
-          <Card className="p-6 w-[300px]">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold">파일 분석 중</h3>
-              <p className="text-sm text-gray-500">잠시만 기다려주세요...</p>
-            </div>
-          </Card>
-        </div>
+      <FileUploader
+        onFileAnalyzed={handleFileAnalyzed}
+        onError={setError}
+      />
+
+      {/* 상단 검증 오류 알림 */}
+      {validationError && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            필수 입력 항목을 작성해주세요
+          </AlertDescription>
+        </Alert>
       )}
 
-      {/* 파일 업로드 */}
-      <Card className="mb-6 p-4">
-        <div className="border-2 border-dashed rounded-lg p-4 text-center">
-          <input
-            type="file"
-            accept=".json,.xml,.yaml,.yml,.gradle,.properties,.env,.txt,.kts"
-            onChange={handleFileUpload}
-            className="hidden"
-            id="file-upload"
-            disabled={isAnalyzing}
-          />
-          <label htmlFor="file-upload" className="cursor-pointer">
-            <Upload className="mx-auto h-8 w-8 text-gray-400" />
-            <p className="mt-1 text-sm text-gray-600">
-              프로젝트 파일 업로드 (최대 1MB)
-            </p>
-            <p className="text-xs text-gray-500">
-              (package.json, build.gradle, pom.xml etc)
-            </p>
-          </label>
-        </div>
-      </Card>
+      {/* 프로젝트 정보 섹션은 항상 열려있음 */}
+      <div ref={projectInfoRef}>
+        <ProjectInfoSection
+          projectName={projectName}
+          description={description}
+          onProjectNameChange={setProjectName}
+          onDescriptionChange={setDescription}
+          hasError={validationError}
+        />
+      </div>
 
-      <Card className="mb-6 p-4">
-        <h2 className="text-xl font-bold mb-4">프로젝트 정보</h2>
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium mb-2 block">
-              프로젝트 이름 ({projectName.length}/{MAX_PROJECT_NAME_LENGTH})
-            </label>
-            <Input
-              value={projectName}
-              onChange={(e) => {
-                const newValue = e.target.value;
-                if (newValue.length <= MAX_PROJECT_NAME_LENGTH) {
-                  setProjectName(newValue);
-                }
-              }}
-              placeholder="프로젝트 이름을 입력하세요"
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium mb-2 block">
-              설명 ({description.length}/{MAX_DESCRIPTION_LENGTH})
-            </label>
-            <Textarea
-              value={description}
-              onChange={(e) => {
-                const newValue = e.target.value;
-                if (newValue.length <= MAX_DESCRIPTION_LENGTH) {
-                  setDescription(newValue);
-                }
-              }}
-              placeholder="프로젝트에 대한 설명을 입력하세요"
-              className="h-32"
-            />
-          </div>
-        </div>
-      </Card>
+      {/* 나머지 섹션은 접을 수 있게 수정 */}
+      <CollapsibleSection title="주요 기능" defaultOpen={false}>
+        <FeaturesSection
+          features={features}
+          onAddFeature={(feature) => setFeatures([...features, feature])}
+          onRemoveFeature={(index) => setFeatures(features.filter((_, i) => i !== index))}
+          analyzedFeatures={analyzedFeatures}
+          onAddAnalyzedFeatures={handleAddAnalyzedFeature}
+        />
+      </CollapsibleSection>
 
-      <Card className="mb-6 p-4">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold">주요 기능</h2>
-        </div>
-        <div className="space-y-4">
-          <div className="flex flex-wrap gap-2 mb-2">
-            {features.map((feature, index) => (
-              <span 
-                key={index}
-                className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm flex items-center gap-1"
-              >
-                {feature}
-                <button
-                  onClick={() => removeFeature(index)}
-                  className="hover:text-blue-600"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </span>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <Input
-              placeholder="새로운 기능 추가"
-              value={newFeature}
-              onChange={(e) => setNewFeature(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter' && newFeature.trim()) {
-                  addFeature();
-                }
-              }}
-            />
-            <Button 
-              size="sm" 
-              onClick={addFeature}
-              className="shrink-0"
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              추가
-            </Button>
-          </div>
-        </div>
-      </Card>
+      <CollapsibleSection title="기술 스택" defaultOpen={false}>
+        <TechStackSection
+          techStack={techStack}
+          onAddTech={(tech) => setTechStack([...techStack, tech])}
+          onRemoveTech={(index) => setTechStack(techStack.filter((_, i) => i !== index))}
+        />
+      </CollapsibleSection>
 
-      <Card className="mb-6 p-4">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold">기술 스택</h2>
-        </div>
-        <div className="space-y-4">
-          <div className="flex flex-wrap gap-2 mb-2">
-            {techStack.map((tech, index) => (
-              <span 
-                key={index}
-                className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm flex items-center gap-1"
-              >
-                {tech}
-                <button
-                  onClick={() => removeTech(index)}
-                  className="hover:text-green-600"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </span>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <Input
-              placeholder="기술 스택 추가"
-              value={newTech}
-              onChange={(e) => setNewTech(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter' && newTech.trim()) {
-                  addTech();
-                }
-              }}
-            />
-            <Button 
-              size="sm" 
-              onClick={addTech}
-              className="shrink-0"
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              추가
-            </Button>
-          </div>
-        </div>
-      </Card>
+      <CollapsibleSection title="라이선스" defaultOpen={false}>
+        <LicenseSection
+          license={license}
+          onLicenseChange={setLicense}
+        />
+      </CollapsibleSection>
 
-      <Card className="mb-6 p-4">
-        <h2 className="text-xl font-bold mb-4">라이선스</h2>
-        <div className="space-y-4">
-          <Select
-            value={license.type}
-            onValueChange={(type) => setLicense({ ...license, type })}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="라이선스 선택" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="MIT">MIT License</SelectItem>
-              <SelectItem value="Apache-2.0">Apache License 2.0</SelectItem>
-              <SelectItem value="GPL-3.0">GNU GPL v3</SelectItem>
-              <SelectItem value="BSD-3-Clause">BSD 3-Clause</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Input
-            placeholder="작성자 이름"
-            value={license.author}
-            onChange={(e) => setLicense({ ...license, author: e.target.value })}
-          />
-        </div>
-      </Card>
+      {analyzedData.dependencies && analyzedData.dependencies.length > 0 && (
+        <CollapsibleSection title="의존성" defaultOpen={false}>
+          <DependenciesSection dependencies={analyzedData.dependencies} />
+        </CollapsibleSection>
+      )}
+      
+      {analyzedData.installation && analyzedData.installation.length > 0 && (
+        <CollapsibleSection title="설치 방법" defaultOpen={false}>
+          <InstallationSection installation={analyzedData.installation} />
+        </CollapsibleSection>
+      )}
+      
+      {analyzedData.usage && analyzedData.usage.length > 0 && (
+        <CollapsibleSection title="사용 방법" defaultOpen={false}>
+          <UsageSection usage={analyzedData.usage} />
+        </CollapsibleSection>
+      )}
 
       <Button 
-        className="w-full"
+        className="w-full mt-6"
         onClick={handleGenerate}
-        disabled={isSubmitting || isAnalyzing}
       >
-        {isSubmitting ? '생성 중...' : 'README 생성하기'}
+        README 생성하기
       </Button>
 
-      {error && (
+      {error && !validationError && (
         <Alert variant="destructive" className="mt-4">
           <AlertDescription>{error}</AlertDescription>
         </Alert>

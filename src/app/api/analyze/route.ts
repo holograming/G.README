@@ -10,7 +10,6 @@ interface ContentBlock {
 
 interface ClaudeResponse {
   content: ContentBlock[];
-  // 다른 필드들...
 }
 
 const anthropic = new Anthropic({
@@ -61,7 +60,19 @@ export async function POST(request: NextRequest) {
 
       //const analysisResult = JSON.parse(message.content[0].text);
       const analysisResult = JSON.parse((message as ClaudeResponse).content[0].text);
-      return NextResponse.json(analysisResult);
+      console.log('Analysis result:', analysisResult);
+      // 필드 매핑 (analyzedFeatures → features)
+      // FeaturesSection 컴포넌트와의 호환성을 위해 키 이름을 유지
+      return NextResponse.json({
+        projectName: analysisResult.projectName,
+        description: analysisResult.description,
+        techStack: analysisResult.techStack,
+        features: analysisResult.analyzedFeatures, // 기존 코드와의 호환성 유지
+        dependencies: analysisResult.dependencies,
+        installation: analysisResult.installation,
+        usage: analysisResult.usage,
+        license: analysisResult.license
+      });
     } catch (parseError) {
       console.error('Error parsing Claude response:', parseError);
       return NextResponse.json(

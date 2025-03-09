@@ -1,8 +1,7 @@
 // src/components/readme-result.tsx
-// src/components/readme-result.tsx
 "use client"
 
-import React, { useCallback } from 'react';
+import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -14,7 +13,7 @@ interface ReadmeResultProps {
     description: string;
     features: string[];
     techStack: string[];
-    markdown: string;
+    markdown?: string;
   };
   error: string | null;
   onBack: () => void;
@@ -26,19 +25,15 @@ export function ReadmeResult({ data, error, onBack, onRetry }: ReadmeResultProps
     if (data.markdown) {
       const blob = new Blob([data.markdown], { type: 'text/markdown' });
       const url = URL.createObjectURL(blob);
-      
-      try {
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `README-${data.projectName || 'generated'}.md`;
-        document.body.appendChild(a);
-        a.click();
-      } finally {
-        // 항상 URL 객체를 정리
-        URL.revokeObjectURL(url);
-      }
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'README.md';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     }
-  }, [data.markdown, data.projectName]);
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">

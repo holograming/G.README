@@ -1,112 +1,84 @@
 // src/app/page.tsx
 "use client"
 
-import { useState, useCallback, useRef } from 'react';
+import { useState } from 'react';
 import ReadmeGenerator from '@/components/readme-generator';
-import { GenerationProgress } from '@/components/generation-progress';
 import { ReadmeResult } from '@/components/readme-result';
-import { useEffect } from 'react';
+import { GenerationProgress } from '@/components/generation-progress';
 
-type PageState = 'input' | 'generating' | 'success' | 'error';
-
-interface GeneratedData {
-  projectName: string;
-  description: string;
-  features: string[];
-  techStack: string[];
-  license: {
-    type: string;
-    author: string;
-  };
-}
+type PageState = 'input' | 'generating' | 'result';
 
 export default function Home() {
   const [pageState, setPageState] = useState<PageState>('input');
-  const [generationStep, setGenerationStep] = useState<GenerationStep>('analyzing');
-  const [generatedMarkdown, setGeneratedMarkdown] = useState<string>('');
+  const [generationStep, setGenerationStep] = useState<'analyzing' | 'generating' | 'formatting'>('analyzing');
   const [error, setError] = useState<string | null>(null);
+  const [generatedData, setGeneratedData] = useState<{
+    projectName: string;
+    description: string;
+    features: string[];
+    techStack: string[];
+    markdown?: string;
+  } | null>(null);
 
-  const handleGenerate = useCallback(async (data: GeneratedData) => {
-    // 이미 생성 중이면 중복 요청 방지
-    if (isGenerating) return;
-
+  const handleGenerate = async (data: {
+    projectName: string;
+    description: string;
+    features: string[];
+    techStack: string[];
+    license: {
+      type: string;
+      author: string;
+      year: string;
+    };
+  }) => {
     try {
-      setIsGenerating(true);
-      setError(null);
-      setLastGenerationData(data);
       setPageState('generating');
-      setError(null);
-      
-      setGenerationStep('analyzing');
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
       setGenerationStep('generating');
+
       const response = await fetch('/api/generate', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
-        signal: abortController.current.signal
       });
 
       if (!response.ok) {
-        throw new Error('README 생성에 실패했습니다.');
+        throw new Error('README 생성에 실패했습니다');
       }
 
       const result = await response.json();
-      if (!result || typeof result.markdown !== 'string') {
-        throw new Error('잘못된 응답 형식입니다');
+      
+      if (result.error) {
+        throw new Error(result.error);
       }
-      
-      setGenerationStep('formatting');
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      setGeneratedMarkdown(markdown);
-      setPageState('success');
 
-    } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        return; // 의도적인 중단은 에러처리 하지 않음
-      }
-      console.error('Generation failed:', error);
-      setError(error instanceof Error ? error.message : 'README 생성 중 오류가 발생했습니다.');
-      setPageState('error');
+      setGeneratedData({
+        projectName: data.projectName,
+        description: data.description,
+        features: data.features,
+        techStack: data.techStack,
+        markdown: result.markdown,
+      });
+
+      setPageState('result');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다');
+      setPageState('result');
     }
-  }, [lastGenerationData, isGenerating, handleGenerate]);
+  };
 
   return (
     <main className="min-h-screen bg-gray-50">
       {pageState === 'input' && (
-        <ReadmeGenerator 
-          onGenerate={handleGenerate}
-          isGenerating={isGenerating}
-        />
+        <ReadmeGenerator onGenerate={handleGenerate} />
       )}
-      
       {pageState === 'generating' && (
-        <GenerationProgress 
-          step={generationStep} 
-          error={error}
-          onRetry={handleRetry}
-          isGenerating={isGenerating}
-        />
+        <GenerationProgress step={generationStep} />
       )}
-      
-      {(pageState === 'success' || pageState === 'error') && (
-        <ReadmeResult 
-          data={{
-            projectName: lastGenerationData.projectName,
-            description: lastGenerationData.description,
-            features: lastGenerationData.features,
-            techStack: lastGenerationData.techStack,
-            markdown: generatedMarkdown
-          }}
+      {pageState === 'result' && generatedData && (
+        <ReadmeResult
+          data={generatedData}
           error={error}
-          onBack={() => {
-            setPageState('input');
-            setError(null);
-          }}
+          onBack={() => setPageState('input')}
           onRetry={() => {
             setError(null);
             setPageState('input');
