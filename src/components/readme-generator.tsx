@@ -155,30 +155,36 @@ export default function ReadmeGenerator({ onGenerate }: ReadmeGeneratorProps) {
         />
       </div>
 
-      {/* 나머지 섹션은 접을 수 있게 수정 */}
-      <CollapsibleSection title="주요 기능" defaultOpen={false}>
-        <FeaturesSection
-          features={features}
-          onAddFeature={(feature) => setFeatures([...features, feature])}
-          onRemoveFeature={(index) => setFeatures(features.filter((_, i) => i !== index))}
-          analyzedFeatures={analyzedFeatures}
-          onAddAnalyzedFeatures={handleAddAnalyzedFeature}
-        />
+       {/* 나머지 섹션은 접을 수 있게 수정 */}
+       <CollapsibleSection title="주요 기능" defaultOpen={false}>
+        <div className="mt-2">
+          <FeaturesSection
+            features={features}
+            onAddFeature={(feature) => setFeatures([...features, feature])}
+            onRemoveFeature={(index) => setFeatures(features.filter((_, i) => i !== index))}
+            analyzedFeatures={analyzedFeatures}
+            onAddAnalyzedFeatures={handleAddAnalyzedFeature}
+          />
+        </div>
       </CollapsibleSection>
 
       <CollapsibleSection title="기술 스택" defaultOpen={false}>
-        <TechStackSection
-          techStack={techStack}
-          onAddTech={(tech) => setTechStack([...techStack, tech])}
-          onRemoveTech={(index) => setTechStack(techStack.filter((_, i) => i !== index))}
-        />
+        <div className="mt-2">
+          <TechStackSection
+            techStack={techStack}
+            onAddTech={(tech) => setTechStack([...techStack, tech])}
+            onRemoveTech={(index) => setTechStack(techStack.filter((_, i) => i !== index))}
+          />
+        </div>
       </CollapsibleSection>
 
       <CollapsibleSection title="라이선스" defaultOpen={false}>
-        <LicenseSection
-          license={license}
-          onLicenseChange={setLicense}
-        />
+        <div className="mt-2">
+          <LicenseSection
+            license={license}
+            onLicenseChange={setLicense}
+          />
+        </div>
       </CollapsibleSection>
 
       {analyzedData.dependencies && analyzedData.dependencies.length > 0 && (
