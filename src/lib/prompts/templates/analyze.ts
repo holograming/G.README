@@ -1,10 +1,32 @@
 // src/lib/prompts/templates/analyze.ts
 import { AnalyzePromptData } from '../types';
+import { 
+  getLicenseAnalysisPrompt, 
+  getFeaturesAnalysisPrompt, 
+  getBasicDependenciesPrompt,
+  getFileSpecificInstructions,
+  getInstallationAnalysisPrompt,  // 새로 추가
+  getInstallationInstructions,    // 새로 추가
+  getUsageAnalysisPrompt,         // 새로 추가
+  getUsageInstructions            // 새로 추가 
+} from '../modules';
 
 export function generateAnalyzePrompt(data: AnalyzePromptData) {
   const { fileContent, fileName } = data;
   
-  return `You are a project file analyzer. Extract key functionality and features from the following ${fileName} file.
+  // 각 분석 항목별 프롬프트 모듈 가져오기
+  const licensePrompt = getLicenseAnalysisPrompt();
+  const featuresPrompt = getFeaturesAnalysisPrompt();
+  const dependenciesPrompt = getBasicDependenciesPrompt();
+  const installationPrompt = getInstallationAnalysisPrompt();
+  const usagePrompt = getUsageAnalysisPrompt();
+  
+  // 파일 유형별 특화 지시사항 가져오기
+  const specificDependenciesInstructions = getFileSpecificInstructions(fileName);
+  const specificInstallationInstructions = getInstallationInstructions(fileName);
+  const specificUsageInstructions = getUsageInstructions(fileName);
+
+return `You are a project file analyzer. Extract key functionality and features from the following ${fileName} file.
 
 File content:
 \`\`\`
@@ -29,10 +51,10 @@ Respond ONLY with a valid JSON object in this format:
     }
   ],
   "installation": [
-    "string (installation command)"
+    "string (installation command formatted as markdown code block)"
   ],
   "usage": [
-    "string (usage command)"
+    "string (project integration examples only - do NOT include API usage unless explicitly documented)"
   ],
   "license": {
     "type": "string (one of: MIT, Apache-2.0, GPL-3.0, BSD-3-Clause, ISC, or Custom)",
@@ -43,57 +65,36 @@ Respond ONLY with a valid JSON object in this format:
 
 Analysis rules:
 
-1. License Analysis:
-   Valid license types are strictly limited to:
-   - MIT
-   - Apache-2.0
-   - GPL-3.0
-   - BSD-3-Clause
-   - ISC
-   - Custom
-   
-   Look for license information in:
-   - package.json license field
-   - LICENSE or LICENSE.md files
-   - README license sections
-   - Source file headers
-   
-   If found, extract:
-   - Exact license type (must match one of the above)
-   - Copyright holder (author)
-   - Copyright year
-   - For ambiguous cases, use "Custom"
+${licensePrompt}
 
-2. Feature analysis rules:
-   Extract key functionality as brief phrases:
-   GOOD:
-   - "markdown rendering"
-   - "file upload"
-   - "user auth"
-   - "data visualization"
-   - "i18n support"
-   
-   BAD:
-   - "implements markdown rendering functionality"
-   - "provides user authentication system"
-   - "handles file uploading mechanism"
+${featuresPrompt}
 
-3. Keep feature descriptions:
-   - Maximum 2-3 words
-   - Action-oriented
-   - No articles (a, an, the)
-   - No helper verbs
-   - No technical details
+${dependenciesPrompt}
+${specificDependenciesInstructions}
 
-4. Dependencies and Installation:
-   - Keep dependencies and tech stack as is
-   - Installation as clear commands
-   - Usage as example commands
+${installationPrompt}
+${specificInstallationInstructions}
+
+${usagePrompt}
+${specificUsageInstructions}
 
 IMPORTANT: 
 - License type must be exactly one of the specified values
 - Keep features extremely concise
 - Strip unnecessary words
 - Maintain JSON format
-- No additional text`;
+- No additional text
+- For installation commands:
+  - ONLY include commands explicitly defined in the file
+  - Format as properly formatted markdown code blocks with language tags
+  - Put the opening \`\`\`language and the code on SEPARATE lines
+  - Put each code statement/command on its own line
+  - Use proper indentation and formatting within code blocks
+  - End code blocks with \`\`\` on its own line
+- For usage examples:
+  - ONLY include project integration/linking information
+  - Format ALL code examples as properly formatted markdown code blocks
+  - Make sure code blocks have proper spacing, line breaks, and indentation
+  - The content of code blocks MUST start on the line AFTER \`\`\`language
+  - If no clear usage information is available, return an empty array`; 
 }

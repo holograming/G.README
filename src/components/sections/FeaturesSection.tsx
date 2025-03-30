@@ -1,5 +1,4 @@
 // src/components/sections/FeaturesSection.tsx
-import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { TagInput } from '../common/TagInput';
 import { Plus, ChevronDown, ChevronUp } from 'lucide-react';
@@ -28,8 +27,7 @@ export function FeaturesSection({
   const [isRecommendationsOpen, setIsRecommendationsOpen] = useState(false);
 
   return (
-    <Card className="mb-6 p-4">
-      <h2 className="text-xl font-bold mb-4">주요 기능</h2>
+    <div>
       
       <TagInput
         tags={features}
@@ -76,6 +74,6 @@ export function FeaturesSection({
           </div>
         </div>
       )}
-    </Card>
+    </div>
   );
 }
