@@ -4,3 +4,5 @@
 export * from './license';
 export * from './features';
 export * from './dependencies';
+export * from './installation';
+export * from './usage';

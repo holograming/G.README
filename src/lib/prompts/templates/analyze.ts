@@ -4,7 +4,11 @@ import {
   getLicenseAnalysisPrompt, 
   getFeaturesAnalysisPrompt, 
   getBasicDependenciesPrompt,
-  getFileSpecificInstructions 
+  getFileSpecificInstructions,
+  getInstallationAnalysisPrompt,  // 새로 추가
+  getInstallationInstructions,    // 새로 추가
+  getUsageAnalysisPrompt,         // 새로 추가
+  getUsageInstructions            // 새로 추가 
 } from '../modules';
 
 export function generateAnalyzePrompt(data: AnalyzePromptData) {
@@ -14,11 +18,15 @@ export function generateAnalyzePrompt(data: AnalyzePromptData) {
   const licensePrompt = getLicenseAnalysisPrompt();
   const featuresPrompt = getFeaturesAnalysisPrompt();
   const dependenciesPrompt = getBasicDependenciesPrompt();
+  const installationPrompt = getInstallationAnalysisPrompt();
+  const usagePrompt = getUsageAnalysisPrompt();
   
   // 파일 유형별 특화 지시사항 가져오기
-  const specificInstructions = getFileSpecificInstructions(fileName);
-  
-  return `You are a project file analyzer. Extract key functionality and features from the following ${fileName} file.
+  const specificDependenciesInstructions = getFileSpecificInstructions(fileName);
+  const specificInstallationInstructions = getInstallationInstructions(fileName);
+  const specificUsageInstructions = getUsageInstructions(fileName);
+
+return `You are a project file analyzer. Extract key functionality and features from the following ${fileName} file.
 
 File content:
 \`\`\`
@@ -43,10 +51,10 @@ Respond ONLY with a valid JSON object in this format:
     }
   ],
   "installation": [
-    "string (installation command)"
+    "string (installation command formatted as markdown code block)"
   ],
   "usage": [
-    "string (usage command)"
+    "string (project integration examples only - do NOT include API usage unless explicitly documented)"
   ],
   "license": {
     "type": "string (one of: MIT, Apache-2.0, GPL-3.0, BSD-3-Clause, ISC, or Custom)",
@@ -62,8 +70,13 @@ ${licensePrompt}
 ${featuresPrompt}
 
 ${dependenciesPrompt}
+${specificDependenciesInstructions}
 
-${specificInstructions}
+${installationPrompt}
+${specificInstallationInstructions}
+
+${usagePrompt}
+${specificUsageInstructions}
 
 IMPORTANT: 
 - License type must be exactly one of the specified values
@@ -71,6 +84,17 @@ IMPORTANT:
 - Strip unnecessary words
 - Maintain JSON format
 - No additional text
-- ONLY extract dependencies that are EXPLICITLY defined in the file
-- DO NOT infer or guess dependencies that aren't clearly specified`;
+- For installation commands:
+  - ONLY include commands explicitly defined in the file
+  - Format as properly formatted markdown code blocks with language tags
+  - Put the opening \`\`\`language and the code on SEPARATE lines
+  - Put each code statement/command on its own line
+  - Use proper indentation and formatting within code blocks
+  - End code blocks with \`\`\` on its own line
+- For usage examples:
+  - ONLY include project integration/linking information
+  - Format ALL code examples as properly formatted markdown code blocks
+  - Make sure code blocks have proper spacing, line breaks, and indentation
+  - The content of code blocks MUST start on the line AFTER \`\`\`language
+  - If no clear usage information is available, return an empty array`; 
 }

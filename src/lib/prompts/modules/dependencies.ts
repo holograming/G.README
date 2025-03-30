@@ -7,8 +7,7 @@ export function getBasicDependenciesPrompt(): string {
    - If version is not explicitly specified, use "latest" as the version
    - For dependencies with variable references, try to resolve the actual version value
    - Dependencies must always be returned in the format: { "name": "dependency-name", "version": "specific-version" }
-   - Installation as clear commands
-   - Usage as example commands`;
+   `;
 }
 
 /**
@@ -109,17 +108,7 @@ When analyzing this CMake file, follow these specific rules for dependencies:
    - For GIT_TAG with commit hashes: use first 7 characters of hash as version
    - For version ranges (e.g., find_package(Boost 1.65...1.72)), use the minimum version
    - If no version is found, use "latest" as the version value
-   - Always include both name and version for each dependency
-
-3. Installation Commands for CMake:
-   - Include standard CMake build commands:
-     - cmake -B build -S .
-     - cmake --build build
-     - cmake --install build (if install targets are defined)
-
-4. Usage Examples for CMake:
-   - Include executable names from add_executable() commands
-     - ./build/[executable_name]`;
+   - Always include both name and version for each dependency`;
 }
 
 // NPM/Node.js 프로젝트 분석 지시사항
@@ -144,16 +133,7 @@ When analyzing this package.json file, follow these specific rules for dependenc
    - Preserve the exact version string from package.json including any prefixes (^, ~, >=, etc.)
    - For repository URLs, extract the version from the URL fragment (#) if available
    - For git+https protocol URLs, extract the version from the URL fragment
-   - Always include both name and version for each dependency
-
-3. Installation Commands for NPM:
-   - Always include "npm install"
-   - If there's a build script in "scripts", include "npm run build"
-   - If there's a "prepare" script, include it
-
-4. Usage Examples for NPM:
-   - Extract from "scripts" section (especially "start", "dev", "serve")
-   - Format as "npm run [script-name]"`;
+   - Always include both name and version for each dependency`;
 }
 
 // Gradle 프로젝트 분석 지시사항
@@ -181,15 +161,7 @@ When analyzing this Gradle file, follow these specific rules for dependencies:
    - For version catalogs, look for libs.versions.toml files
    - If using a + in the version (e.g., 1.2.+), use that as the version
    - Always include both name and version for each dependency
-   - If a version is a property reference that can't be resolved, use "variable-reference" as the version
-
-3. Installation Commands for Gradle:
-   - Include "./gradlew build" or "gradle build"
-   - Include "./gradlew install" if the 'maven' or 'maven-publish' plugin is applied
-
-4. Usage Examples for Gradle:
-   - Include "./gradlew run" if the 'application' plugin is applied
-   - For Android projects, include building and installing the APK`;
+   - If a version is a property reference that can't be resolved, use "variable-reference" as the version`;
 }
 
 // Maven 프로젝트 분석 지시사항
@@ -216,15 +188,7 @@ When analyzing this Maven POM file, follow these specific rules for dependencies
      - If not found, use "property-reference" as the version
    - For parent POM version inheritance, look for <parent> section
    - Always include both name and version for each dependency
-   - If a version is completely missing, use "managed-version" as the version
-
-3. Installation Commands for Maven:
-   - Include "mvn clean install"
-   - Include "mvn package" if <packaging> is jar or war
-
-4. Usage Examples for Maven:
-   - Include "java -jar target/[artifactId]-[version].jar" if packaging is jar
-   - For web applications: "mvn jetty:run" or "mvn tomcat:run" if plugins exist`;
+   - If a version is completely missing, use "managed-version" as the version`;
 }
 
 // Python 프로젝트 분석 지시사항
@@ -253,17 +217,7 @@ When analyzing this Python project file, follow these specific rules for depende
    - Examples of version extraction:
      - "requests==2.28.1" → name: "requests", version: "2.28.1"
      - "flask>=2.0.0" → name: "flask", version: "2.0.0"
-     - "django" → name: "django", version: "latest"
-
-3. Installation Commands for Python:
-   - Include "pip install -r requirements.txt" for requirements.txt
-   - Include "pip install ." or "pip install -e ." for setup.py
-   - Include "python setup.py install" as alternative for setup.py
-
-4. Usage Examples for Python:
-   - Look for main function or entry points in setup.py
-   - If it's a package, include "import [package_name]"
-   - If there's a CLI, include example commands`;
+     - "django" → name: "django", version: "latest" `;
 }
 
 // Rust (Cargo) 프로젝트 분석 지시사항
@@ -286,17 +240,7 @@ When analyzing this Cargo.toml file, follow these specific rules for dependencie
      - For tags that look like versions (e.g., "v1.2.3"), extract "1.2.3" as the version
      - For branches or revisions, use that as the version
    - For path dependencies: use "local" as the version
-   - Always include both name and version for each dependency
-
-3. Installation Commands for Rust:
-   - Include "cargo build"
-   - Include "cargo install --path ." if it has a binary target
-   - Include "cargo test" for testing
-
-4. Usage Examples for Rust:
-   - For binary crates: "cargo run"
-   - For library crates: How to import the crate
-   - Include examples found in the examples directory`;
+   - Always include both name and version for each dependency`;
 }
 
 // Go 프로젝트 분석 지시사항
@@ -320,17 +264,7 @@ When analyzing this go.mod file, follow these specific rules for dependencies:
    - Extract the version part without the 'v' prefix (e.g., "1.2.3")
    - For pseudo-versions (e.g., v0.0.0-20200823014737-9f7001d12a5f), extract as is without 'v'
    - For indirect dependencies marked with // indirect comment, still extract name and version
-   - Always include both name and version for each dependency
-
-3. Installation Commands for Go:
-   - Include "go mod download" to download dependencies
-   - Include "go build" to build the project
-   - Include "go install" if it's an executable
-
-4. Usage Examples for Go:
-   - For executables: "go run ."
-   - For packages: How to import the package
-   - Include "go test" for testing`;
+   - Always include both name and version for each dependency`;
 }
 
 // Ruby (Gemfile) 프로젝트 분석 지시사항
@@ -354,17 +288,7 @@ When analyzing this Gemfile, follow these specific rules for dependencies:
    - For gems without version: use "latest"
    - For git sources with branch/tag/ref: extract that as the version
    - For path sources: use "local" as the version
-   - Always include both name and version for each dependency
-
-3. Installation Commands for Ruby:
-   - Include "bundle install"
-   - Include "gem install bundler" if bundler is needed
-   - Include "bundle exec rake" if a Rakefile exists
-
-4. Usage Examples for Ruby:
-   - For Rails apps: "bundle exec rails server"
-   - For gems: How to require the gem
-   - For executables: "bundle exec [executable]"`;
+   - Always include both name and version for each dependency`;
 }
 
 // PHP (Composer) 프로젝트 분석 지시사항
@@ -385,17 +309,7 @@ When analyzing this composer.json file, follow these specific rules for dependen
    - For range constraints: use the lower bound (e.g., "2.0" from ">=2.0 <3.0")
    - For dev-master or dev-branch: use "dev" as the version
    - For stability flags (e.g., "1.0@beta"): include the stability flag
-   - Always include both name and version for each dependency
-
-3. Installation Commands for PHP:
-   - Include "composer install"
-   - Include "composer update" if needed
-   - Include any scripts defined in "scripts" section
-
-4. Usage Examples for PHP:
-   - For applications: How to run the application
-   - For libraries: How to include the library
-   - For frameworks: Framework-specific startup commands`;
+   - Always include both name and version for each dependency`;
 }
 
 // Dart/Flutter 프로젝트 분석 지시사항
@@ -419,17 +333,7 @@ When analyzing this pubspec.yaml file, follow these specific rules for dependenc
    - For git packages: use branch/tag/commit as version
    - For path packages: use "local" as the version
    - For SDK packages: use the SDK constraint as the version
-   - Always include both name and version for each dependency
-
-3. Installation Commands for Dart/Flutter:
-   - For Flutter: "flutter pub get"
-   - For Dart: "dart pub get"
-   - Include "flutter build" or "dart compile" if applicable
-
-4. Usage Examples for Dart/Flutter:
-   - For Flutter apps: "flutter run"
-   - For Dart apps: "dart run"
-   - For packages: How to import the package`;
+   - Always include both name and version for each dependency`;
 }
 
 // Clojure (Leiningen) 프로젝트 분석 지시사항
@@ -449,17 +353,7 @@ When analyzing this project.clj file, follow these specific rules for dependenci
    - Extract the exact version string
    - For SNAPSHOT versions: keep the SNAPSHOT suffix
    - For version ranges: use the lower bound
-   - Always include both name and version for each dependency
-
-3. Installation Commands for Clojure:
-   - Include "lein deps"
-   - Include "lein compile" if applicable
-   - Include "lein uberjar" for creating JARs
-
-4. Usage Examples for Clojure:
-   - For applications: "lein run"
-   - For libraries: How to require the library
-   - For REPLs: "lein repl"`;
+   - Always include both name and version for each dependency`;
 }
 
 // Scala (SBT) 프로젝트 분석 지시사항
@@ -480,17 +374,7 @@ When analyzing this SBT build file, follow these specific rules for dependencies
    - For version variables: look for val statements defining the version
    - For cross-building with %%: note that SBT appends the Scala version
    - For version ranges: use the lower bound
-   - Always include both name and version for each dependency
-
-3. Installation Commands for Scala:
-   - Include "sbt update"
-   - Include "sbt compile"
-   - Include "sbt package" for creating JARs
-
-4. Usage Examples for Scala:
-   - For applications: "sbt run"
-   - For libraries: How to import the library
-   - For tests: "sbt test"`;
+   - Always include both name and version for each dependency`;
 }
 
 // Dockerfile 분석 지시사항
@@ -519,14 +403,5 @@ When analyzing this Dockerfile, follow these specific rules for dependencies:
      - npm: package@version
      - pip: package==version
    - If no specific version is provided for a package, use "latest"
-   - Always include both name and version for each dependency
-
-3. Installation Commands for Docker:
-   - Include "docker build -t imagename ."
-   - Include "docker-compose up" if a docker-compose.yml exists
-
-4. Usage Examples for Docker:
-   - Include "docker run imagename"
-   - Include exposed ports information (e.g., "docker run -p 8080:80 imagename")
-   - Include any CMD or ENTRYPOINT examples`;
+   - Always include both name and version for each dependency`;
 }
