@@ -42,7 +42,7 @@ export function getUsageInstructions(fileName: string): string {
     return getDartFlutterUsageInstructions();
   }
   
-  return getGenericUsageInstructions();
+  return getUsageAnalysisPrompt();
 }
 
 // CMake 사용법 지시사항
